@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { findOilMatch } from './lib/oilMatches'
+import { findProductByBrand } from './lib/oilProducts'
 
 function formatKenteken(value) {
   return value
@@ -42,6 +43,14 @@ function getVehicleFinderModel(vehicle) {
   return model
 }
 
+function normalizeOilSpec(value = '') {
+  return String(value)
+    .toUpperCase()
+    .replace(/[._-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export default function Home() {
   const [kenteken, setKenteken] = useState('')
   const [vehicle, setVehicle] = useState(null)
@@ -51,7 +60,7 @@ export default function Home() {
   const [oilError, setOilError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const oilMatch = findOilMatch(vehicle)
+  const fallbackOilMatch = findOilMatch(vehicle)
 
   async function zoeken(e) {
     e.preventDefault()
@@ -73,7 +82,6 @@ export default function Home() {
     setLoading(true)
 
     try {
-      // 1. RDW voertuig opzoeken
       const rdwResponse = await fetch(
         `/api/rdw?kenteken=${encodeURIComponent(clean)}`
       )
@@ -89,7 +97,6 @@ export default function Home() {
 
       setVehicle(rdwData)
 
-      // 2. Gegevens voor Vehicle Finder voorbereiden
       const year = getYear(
         rdwData.datumEersteToelating
       )
@@ -106,7 +113,6 @@ export default function Home() {
         return
       }
 
-      // 3. Vehicle Finder aanroepen
       try {
         const vfResponse = await fetch(
           `/api/vehicle-finder?year=${encodeURIComponent(year)}` +
@@ -165,6 +171,58 @@ export default function Home() {
   const automaticOil =
     safeAutomaticMatch
       ? vehicleFinder?.oil?.oil_spec
+      : null
+
+  const fallbackOil =
+    !automaticOil && fallbackOilMatch
+      ? {
+          viscosity:
+            fallbackOilMatch.oil?.viscositeit ||
+            fallbackOilMatch.oil?.shell?.viscositeit ||
+            null,
+          oem_spec:
+            fallbackOilMatch.oil?.oemSpecificatie ||
+            fallbackOilMatch.oil?.shell?.specificatie ||
+            null
+        }
+      : null
+
+  const oilForProducts =
+    automaticOil || fallbackOil
+
+  const normalizedSpec =
+    normalizeOilSpec(
+      oilForProducts?.oem_spec || ''
+    )
+
+  const shellProduct =
+    oilForProducts
+      ? findProductByBrand({
+          oemSpec: normalizedSpec,
+          viscosity:
+            oilForProducts.viscosity,
+          brand: 'Shell'
+        })
+      : null
+
+  const okProduct =
+    oilForProducts
+      ? findProductByBrand({
+          oemSpec: normalizedSpec,
+          viscosity:
+            oilForProducts.viscosity,
+          brand: 'OK Olie'
+        })
+      : null
+
+  const mpmProduct =
+    oilForProducts
+      ? findProductByBrand({
+          oemSpec: normalizedSpec,
+          viscosity:
+            oilForProducts.viscosity,
+          brand: 'MPM'
+        })
       : null
 
   return (
@@ -227,26 +285,19 @@ export default function Home() {
 
       {vehicle && (
         <section className="results">
-          {/* RDW VOERTUIGGEGEVENS */}
-
           <div className="vehicleCard">
-            <div>
-              <span className="label">
-                Voertuig gevonden
-              </span>
+            <span className="label">
+              Voertuig gevonden
+            </span>
 
-              <h2>
-                {vehicle.merk}{' '}
-                {vehicle.handelsbenaming}
-              </h2>
-            </div>
+            <h2>
+              {vehicle.merk}{' '}
+              {vehicle.handelsbenaming}
+            </h2>
 
             <div className="specGrid">
               <div>
-                <span>
-                  Brandstof
-                </span>
-
+                <span>Brandstof</span>
                 <strong>
                   {vehicle.brandstof ||
                     'Onbekend'}
@@ -257,7 +308,6 @@ export default function Home() {
                 <span>
                   Bouwjaar / toelating
                 </span>
-
                 <strong>
                   {vehicle.datumEersteToelating ||
                     'Onbekend'}
@@ -268,7 +318,6 @@ export default function Home() {
                 <span>
                   Cilinderinhoud
                 </span>
-
                 <strong>
                   {vehicle.cilinderinhoud
                     ? `${vehicle.cilinderinhoud} cc`
@@ -277,10 +326,7 @@ export default function Home() {
               </div>
 
               <div>
-                <span>
-                  Variant
-                </span>
-
+                <span>Variant</span>
                 <strong>
                   {vehicle.variant ||
                     'Onbekend'}
@@ -288,10 +334,7 @@ export default function Home() {
               </div>
 
               <div>
-                <span>
-                  Vermogen
-                </span>
-
+                <span>Vermogen</span>
                 <strong>
                   {vehicle.vermogenKw
                     ? `${vehicle.vermogenKw} kW / ${Math.round(
@@ -303,8 +346,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-
-          {/* VEHICLE FINDER MATCH */}
 
           {vehicleFinder?.vehicle && (
             <div className="vehicleCard">
@@ -319,10 +360,7 @@ export default function Home() {
 
               <div className="specGrid">
                 <div>
-                  <span>
-                    Vehicle ID
-                  </span>
-
+                  <span>Vehicle ID</span>
                   <strong>
                     {vehicleFinder.vehicle.id ||
                       'Onbekend'}
@@ -330,10 +368,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <span>
-                    Bouwjaar
-                  </span>
-
+                  <span>Bouwjaar</span>
                   <strong>
                     {vehicleFinder.vehicle.year ||
                       'Onbekend'}
@@ -341,10 +376,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <span>
-                    Motor
-                  </span>
-
+                  <span>Motor</span>
                   <strong>
                     {vehicleFinder.vehicle
                       .engine ||
@@ -356,7 +388,6 @@ export default function Home() {
                   <span>
                     Exacte match
                   </span>
-
                   <strong>
                     {safeAutomaticMatch
                       ? 'Ja'
@@ -366,8 +397,6 @@ export default function Home() {
               </div>
             </div>
           )}
-
-          {/* AUTOMATISCH OLIEADVIES */}
 
           {automaticOil && (
             <div className="vehicleCard">
@@ -385,7 +414,6 @@ export default function Home() {
                   <span>
                     Viscositeit
                   </span>
-
                   <strong>
                     {automaticOil.viscosity ||
                       'Onbekend'}
@@ -396,7 +424,6 @@ export default function Home() {
                   <span>
                     OEM-specificatie
                   </span>
-
                   <strong>
                     {automaticOil.oem_spec ||
                       'Onbekend'}
@@ -407,7 +434,6 @@ export default function Home() {
                   <span>
                     Type olie
                   </span>
-
                   <strong>
                     {automaticOil.oil_type ||
                       'Onbekend'}
@@ -418,7 +444,6 @@ export default function Home() {
                   <span>
                     Inhoud met filter
                   </span>
-
                   <strong>
                     {automaticOil.capacity_with_filter
                       ? `${automaticOil.capacity_with_filter} liter`
@@ -430,7 +455,6 @@ export default function Home() {
                   <span>
                     Inhoud zonder filter
                   </span>
-
                   <strong>
                     {automaticOil.capacity_without_filter
                       ? `${automaticOil.capacity_without_filter} liter`
@@ -441,32 +465,28 @@ export default function Home() {
             </div>
           )}
 
-          {/* WAARSCHUWING ALS MOTOR NIET ZEKER IS */}
-
           {oilError && (
             <div className="message error">
               {oilError}
             </div>
           )}
 
-          {/* TIJDELIJKE HANDMATIGE MOTORHERKENNING */}
-
-          {oilMatch && (
+          {fallbackOilMatch && (
             <div className="vehicleCard">
               <span className="label">
                 Motor herkend
               </span>
 
               <h2>
-                {oilMatch.engine.naam}{' '}
+                {fallbackOilMatch.engine.naam}{' '}
                 –{' '}
                 {
-                  oilMatch.engine
+                  fallbackOilMatch.engine
                     .vermogenKw
                 }{' '}
                 kW /{' '}
                 {
-                  oilMatch.engine
+                  fallbackOilMatch.engine
                     .vermogenPk
                 }{' '}
                 pk
@@ -477,71 +497,54 @@ export default function Home() {
                   Motorcode:
                 </strong>{' '}
                 {
-                  oilMatch.engine
+                  fallbackOilMatch.engine
                     .motorcode
                 }
               </p>
             </div>
           )}
 
-          {/* OLIEPRODUCTEN */}
-
           <h3>
             Motorolie per merk
           </h3>
 
           <div className="brandGrid">
-            {/* SHELL */}
-
             <article className="brandCard">
               <span className="brandName">
                 Shell
               </span>
 
               <p>
-                {oilMatch?.oil?.shell
-                  ?.product ||
-                  'Nog geen productmatch gevonden'}
+                {shellProduct?.product ||
+                  'Geen automatische match gevonden'}
               </p>
 
-              {oilMatch?.oil?.shell
-                ?.viscositeit && (
+              {shellProduct?.viscosity && (
                 <p>
                   <strong>
                     Viscositeit:
                   </strong>{' '}
-                  {
-                    oilMatch.oil
-                      .shell
-                      .viscositeit
-                  }
+                  {shellProduct.viscosity}
                 </p>
               )}
 
-              {oilMatch?.oil?.shell
-                ?.specificatie && (
+              {shellProduct?.specs?.length > 0 && (
                 <p>
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {
-                    oilMatch.oil
-                      .shell
-                      .specificatie
-                  }
+                  {shellProduct.specs.join(
+                    ' / '
+                  )}
                 </p>
               )}
 
               <span className="status">
-                {oilMatch?.oil?.shell
-                  ?.status ===
-                'matched'
+                {shellProduct
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
             </article>
-
-            {/* OK OLIE */}
 
             <article className="brandCard">
               <span className="brandName">
@@ -549,47 +552,36 @@ export default function Home() {
               </span>
 
               <p>
-                {oilMatch?.oil?.ok
-                  ?.product ||
-                  'Nog geen productmatch gevonden'}
+                {okProduct?.product ||
+                  'Geen automatische match gevonden'}
               </p>
 
-              {oilMatch?.oil?.ok
-                ?.viscositeit && (
+              {okProduct?.viscosity && (
                 <p>
                   <strong>
                     Viscositeit:
                   </strong>{' '}
-                  {
-                    oilMatch.oil.ok
-                      .viscositeit
-                  }
+                  {okProduct.viscosity}
                 </p>
               )}
 
-              {oilMatch?.oil?.ok
-                ?.specificatie && (
+              {okProduct?.specs?.length > 0 && (
                 <p>
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {
-                    oilMatch.oil.ok
-                      .specificatie
-                  }
+                  {okProduct.specs.join(
+                    ' / '
+                  )}
                 </p>
               )}
 
               <span className="status">
-                {oilMatch?.oil?.ok
-                  ?.status ===
-                'matched'
+                {okProduct
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
             </article>
-
-            {/* MPM */}
 
             <article className="brandCard">
               <span className="brandName">
@@ -597,41 +589,32 @@ export default function Home() {
               </span>
 
               <p>
-                {oilMatch?.oil?.mpm
-                  ?.product ||
-                  'Nog geen productmatch gevonden'}
+                {mpmProduct?.product ||
+                  'Geen automatische match gevonden'}
               </p>
 
-              {oilMatch?.oil?.mpm
-                ?.viscositeit && (
+              {mpmProduct?.viscosity && (
                 <p>
                   <strong>
                     Viscositeit:
                   </strong>{' '}
-                  {
-                    oilMatch.oil.mpm
-                      .viscositeit
-                  }
+                  {mpmProduct.viscosity}
                 </p>
               )}
 
-              {oilMatch?.oil?.mpm
-                ?.specificatie && (
+              {mpmProduct?.specs?.length > 0 && (
                 <p>
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {
-                    oilMatch.oil.mpm
-                      .specificatie
-                  }
+                  {mpmProduct.specs.join(
+                    ' / '
+                  )}
                 </p>
               )}
 
               <span className="status">
-                {oilMatch?.oil?.mpm
-                  ?.status ===
-                'matched'
+                {mpmProduct
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
