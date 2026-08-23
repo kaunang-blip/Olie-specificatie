@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 const VEHICLE_ENDPOINT = 'https://opendata.rdw.nl/resource/m9d7-ebf2.json'
 const FUEL_ENDPOINT = 'https://opendata.rdw.nl/resource/8ys7-d773.json'
-
+const AXLE_ENDPOINT = 'https://opendata.rdw.nl/resource/3huj-srit.json'
 function normalizePlate(value = '') {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
@@ -69,7 +69,11 @@ export async function GET(request) {
           .filter(Boolean)
           .join(' / ')
       : ''
-
+    const vermogenKw = Array.isArray(fuels)
+  ? fuels
+      .map((f) => Number(f.nettomaximumvermogen))
+      .find((v) => Number.isFinite(v) && v > 0) || null
+  : null
     return NextResponse.json({
       kenteken,
       merk: v.merk || 'Onbekend',
@@ -88,7 +92,7 @@ export async function GET(request) {
       uitvoering: v.uitvoering || null,
       typegoedkeuringsnummer: v.typegoedkeuringsnummer || null,
       brandstof: brandstof || null
-    })
+      vermogenKw,    })
   } catch (error) {
     console.error('RDW lookup failed:', error)
 
