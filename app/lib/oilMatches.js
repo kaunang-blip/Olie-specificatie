@@ -36,11 +36,11 @@ export const oilMatches = [
       },
 
       ok: {
-        product: 'Nog te koppelen',
-        viscositeit: null,
-        specificatie: null,
-        status: 'pending'
-      },
+  product: 'OK 1016 X Long Life 5W-30',
+  viscositeit: '5W-30',
+  specificatie: 'VW 504 00 / 507 00',
+  status: 'matched'
+},      
 
       mpm: {
         product: 'MPM Motor Oil 5W-30 Premium Synthetic ESP-X',
