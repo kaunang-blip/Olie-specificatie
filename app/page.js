@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { findOilMatch } from '../lib/oilMatches'
+
 function formatKenteken(value) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
 }
@@ -11,26 +12,34 @@ export default function Home() {
   const [vehicle, setVehicle] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
   const oilMatch = findOilMatch(vehicle)
+
   async function zoeken(e) {
     e.preventDefault()
     setError('')
     setVehicle(null)
 
     const clean = formatKenteken(kenteken)
+
     if (clean.length < 6) {
       setError('Vul een geldig Nederlands kenteken in.')
       return
     }
 
     setLoading(true)
+
     try {
-      const response = await fetch(`/api/rdw?kenteken=${encodeURIComponent(clean)}`)
+      const response = await fetch(
+        `/api/rdw?kenteken=${encodeURIComponent(clean)}`
+      )
+
       const data = await response.json()
 
       if (!response.ok) {
         throw new Error(data.error || 'Voertuig niet gevonden.')
       }
+
       setVehicle(data)
     } catch (err) {
       setError(err.message || 'Er ging iets mis bij het opzoeken.')
@@ -43,12 +52,18 @@ export default function Home() {
     <main className="shell">
       <section className="hero">
         <div className="eyebrow">OLIEZOEKER</div>
+
         <h1>Vind de juiste motorolie via kenteken</h1>
-        <p>Zoek eerst het voertuig op via RDW. In de volgende stap koppelen we Shell, OK Olie en MPM.</p>
+
+        <p>
+          Zoek eerst het voertuig op via RDW. Daarna bepalen we de
+          motorspecificatie en koppelen we Shell, OK Olie en MPM.
+        </p>
 
         <form onSubmit={zoeken} className="searchForm">
           <div className="plate">
             <span className="eu">NL</span>
+
             <input
               value={kenteken}
               onChange={(e) => setKenteken(e.target.value)}
@@ -59,12 +74,17 @@ export default function Home() {
               spellCheck="false"
             />
           </div>
+
           <button type="submit" disabled={loading}>
             {loading ? 'Zoeken…' : 'Zoek voertuig'}
           </button>
         </form>
 
-        {error && <div className="message error">{error}</div>}
+        {error && (
+          <div className="message error">
+            {error}
+          </div>
+        )}
       </section>
 
       {vehicle && (
@@ -72,53 +92,98 @@ export default function Home() {
           <div className="vehicleCard">
             <div>
               <span className="label">Voertuig gevonden</span>
-              <h2>{vehicle.merk} {vehicle.handelsbenaming}</h2>
+
+              <h2>
+                {vehicle.merk} {vehicle.handelsbenaming}
+              </h2>
             </div>
+
             <div className="specGrid">
-              <div><span>Brandstof</span><strong>{vehicle.brandstof || 'Onbekend'}</strong></div>
-              <div><span>Bouwjaar / toelating</span><strong>{vehicle.datumEersteToelating || 'Onbekend'}</strong></div>
-              <div><span>Cilinderinhoud</span><strong>{vehicle.cilinderinhoud ? `${vehicle.cilinderinhoud} cc` : 'Onbekend'}</strong></div>
-              <div><span>Variant</span><strong>{vehicle.variant || 'Onbekend'}</strong></div>
-        <div>
-  <span>Vermogen</span>
-  <strong>
-    {vehicle.vermogenKw
-      ? `${vehicle.vermogenKw} kW / ${Math.round(vehicle.vermogenKw * 1.35962)} pk`
-      : 'Onbekend'}
-  </strong>
-</div>            </div>
+              <div>
+                <span>Brandstof</span>
+                <strong>
+                  {vehicle.brandstof || 'Onbekend'}
+                </strong>
+              </div>
+
+              <div>
+                <span>Bouwjaar / toelating</span>
+                <strong>
+                  {vehicle.datumEersteToelating || 'Onbekend'}
+                </strong>
+              </div>
+
+              <div>
+                <span>Cilinderinhoud</span>
+                <strong>
+                  {vehicle.cilinderinhoud
+                    ? `${vehicle.cilinderinhoud} cc`
+                    : 'Onbekend'}
+                </strong>
+              </div>
+
+              <div>
+                <span>Variant</span>
+                <strong>
+                  {vehicle.variant || 'Onbekend'}
+                </strong>
+              </div>
+
+              <div>
+                <span>Vermogen</span>
+                <strong>
+                  {vehicle.vermogenKw
+                    ? `${vehicle.vermogenKw} kW / ${Math.round(
+                        vehicle.vermogenKw * 1.35962
+                      )} pk`
+                    : 'Onbekend'}
+                </strong>
+              </div>
+            </div>
           </div>
-{oilMatch && (
-  <div className="vehicleCard">
-    <span className="label">Motor herkend</span>
 
-    <h2>
-      {oilMatch.engine.naam} – {oilMatch.engine.vermogenKw} kW / {oilMatch.engine.vermogenPk} pk
-    </h2>
+          {oilMatch && (
+            <div className="vehicleCard">
+              <span className="label">Motor herkend</span>
 
-    <p>
-      <strong>Motorcode:</strong>{' '}
-      {oilMatch.engine.motorcode}
-    </p>
+              <h2>
+                {oilMatch.engine.naam} – {oilMatch.engine.vermogenKw} kW /{' '}
+                {oilMatch.engine.vermogenPk} pk
+              </h2>
 
-    <p>
-      <strong>Oliespecificatie:</strong>{' '}
-      {oilMatch.oil.oemSpecificaties.join(' / ')}
-    </p>
+              <p>
+                <strong>Motorcode:</strong>{' '}
+                {oilMatch.engine.motorcode}
+              </p>
 
-    <p>
-      <strong>Mogelijke viscositeit:</strong>{' '}
-      {oilMatch.oil.viscositeiten.join(' / ')}
-    </p>
-  </div>
-)}  </div>
-)}          <h3>Motorolie</h3>
+              <p>
+                <strong>Oliespecificatie:</strong>{' '}
+                {oilMatch.oil.oemSpecificaties.join(' / ')}
+              </p>
+
+              <p>
+                <strong>Mogelijke viscositeit:</strong>{' '}
+                {oilMatch.oil.viscositeiten.join(' / ')}
+              </p>
+            </div>
+          )}
+
+          <h3>Motorolie</h3>
+
           <div className="brandGrid">
             {['Shell', 'OK Olie', 'MPM'].map((brand) => (
               <article className="brandCard" key={brand}>
-                <span className="brandName">{brand}</span>
-                <p>Wordt in stap 2 gekoppeld aan de exacte motorspecificatie.</p>
-                <span className="status">Nog te koppelen</span>
+                <span className="brandName">
+                  {brand}
+                </span>
+
+                <p>
+                  Wordt gekoppeld aan de exacte motorspecificatie.
+                </p>
+
+                <span className="status">
+                  Nog te koppelen
+                </span>
               </article>
             ))}
           </div>
