@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { findOilMatch } from '../lib/oilMatches'
-
+import { findOilMatch } from './lib/oilMatches'
 function formatKenteken(value) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
 }
