@@ -73,15 +73,14 @@ export default function Home() {
     const clean = formatKenteken(kenteken)
 
     if (clean.length < 6) {
-      setError(
-        'Vul een geldig Nederlands kenteken in.'
-      )
+      setError('Vul een geldig Nederlands kenteken in.')
       return
     }
 
     setLoading(true)
 
     try {
+      // Stap 1: RDW
       const rdwResponse = await fetch(
         `/api/rdw?kenteken=${encodeURIComponent(clean)}`
       )
@@ -90,8 +89,7 @@ export default function Home() {
 
       if (!rdwResponse.ok) {
         throw new Error(
-          rdwData.error ||
-            'Voertuig niet gevonden.'
+          rdwData.error || 'Voertuig niet gevonden.'
         )
       }
 
@@ -102,9 +100,7 @@ export default function Home() {
       )
 
       const make = rdwData.merk
-
-      const model =
-        getVehicleFinderModel(rdwData)
+      const model = getVehicleFinderModel(rdwData)
 
       if (!year || !make || !model) {
         setOilError(
@@ -113,9 +109,10 @@ export default function Home() {
         return
       }
 
+      // Stap 2: Vehicle Finder + oliegegevens
       try {
-        const vfResponse = await fetch(
-          `/api/vehicle-finder?year=${encodeURIComponent(year)}` +
+        const oilResponse = await fetch(
+          `/api/vehicle-oil?year=${encodeURIComponent(year)}` +
             `&make=${encodeURIComponent(make)}` +
             `&model=${encodeURIComponent(model)}` +
             `&cilinderinhoud=${encodeURIComponent(
@@ -126,33 +123,32 @@ export default function Home() {
             )}`
         )
 
-        const vfData =
-          await vfResponse.json()
+        const oilData = await oilResponse.json()
 
-        if (!vfResponse.ok) {
+        if (!oilResponse.ok) {
           setOilError(
-            vfData.error ||
+            oilData.error ||
               'Automatische oliegegevens konden niet worden gevonden.'
           )
           return
         }
 
-        setVehicleFinder(vfData)
+        setVehicleFinder(oilData)
 
         if (
-          vfData.safeMatch === false &&
-          vfData.warning
+          oilData.safeMatch === false &&
+          oilData.warning
         ) {
-          setOilError(vfData.warning)
+          setOilError(oilData.warning)
         }
-      } catch (vfError) {
+      } catch (oilLookupError) {
         console.error(
-          'Vehicle Finder fout:',
-          vfError
+          'Vehicle oil fout:',
+          oilLookupError
         )
 
         setOilError(
-          'Vehicle Finder kon tijdelijk niet worden bereikt.'
+          'De automatische oliezoeker kon tijdelijk niet worden bereikt.'
         )
       }
     } catch (err) {
@@ -165,13 +161,22 @@ export default function Home() {
     }
   }
 
-  const safeAutomaticMatch =
-    vehicleFinder?.safeMatch === true
+  /*
+   * De vehicle-oil route kan verschillende vormen
+   * teruggeven. We ondersteunen zowel:
+   *
+   * oil: { oil_spec: ... }
+   *
+   * als:
+   *
+   * oil: { data: { oil_spec: ... } }
+   */
 
   const automaticOil =
-    safeAutomaticMatch
-      ? vehicleFinder?.oil?.oil_spec
-      : null
+    vehicleFinder?.oil?.oil_spec ||
+    vehicleFinder?.oil?.data?.oil_spec ||
+    vehicleFinder?.oil_spec ||
+    null
 
   const fallbackOil =
     !automaticOil && fallbackOilMatch
@@ -180,6 +185,7 @@ export default function Home() {
             fallbackOilMatch.oil?.viscositeit ||
             fallbackOilMatch.oil?.shell?.viscositeit ||
             null,
+
           oem_spec:
             fallbackOilMatch.oil?.oemSpecificatie ||
             fallbackOilMatch.oil?.shell?.specificatie ||
@@ -225,9 +231,14 @@ export default function Home() {
         })
       : null
 
+  const matchedVehicle =
+    vehicleFinder?.vehicle || null
+
   return (
     <main className="shell">
+
       <section className="hero">
+
         <div className="eyebrow">
           OLIEZOEKER
         </div>
@@ -246,7 +257,9 @@ export default function Home() {
           onSubmit={zoeken}
           className="searchForm"
         >
+
           <div className="plate">
+
             <span className="eu">
               NL
             </span>
@@ -254,9 +267,7 @@ export default function Home() {
             <input
               value={kenteken}
               onChange={(e) =>
-                setKenteken(
-                  e.target.value
-                )
+                setKenteken(e.target.value)
               }
               placeholder="AB123C"
               aria-label="Kenteken"
@@ -264,6 +275,7 @@ export default function Home() {
               autoCorrect="off"
               spellCheck="false"
             />
+
           </div>
 
           <button
@@ -274,6 +286,7 @@ export default function Home() {
               ? 'Zoeken…'
               : 'Zoek voertuig'}
           </button>
+
         </form>
 
         {error && (
@@ -281,11 +294,17 @@ export default function Home() {
             {error}
           </div>
         )}
+
       </section>
 
       {vehicle && (
+
         <section className="results">
+
+          {/* RDW voertuig */}
+
           <div className="vehicleCard">
+
             <span className="label">
               Voertuig gevonden
             </span>
@@ -296,8 +315,10 @@ export default function Home() {
             </h2>
 
             <div className="specGrid">
+
               <div>
                 <span>Brandstof</span>
+
                 <strong>
                   {vehicle.brandstof ||
                     'Onbekend'}
@@ -308,6 +329,7 @@ export default function Home() {
                 <span>
                   Bouwjaar / toelating
                 </span>
+
                 <strong>
                   {vehicle.datumEersteToelating ||
                     'Onbekend'}
@@ -318,6 +340,7 @@ export default function Home() {
                 <span>
                   Cilinderinhoud
                 </span>
+
                 <strong>
                   {vehicle.cilinderinhoud
                     ? `${vehicle.cilinderinhoud} cc`
@@ -327,6 +350,7 @@ export default function Home() {
 
               <div>
                 <span>Variant</span>
+
                 <strong>
                   {vehicle.variant ||
                     'Onbekend'}
@@ -335,6 +359,7 @@ export default function Home() {
 
               <div>
                 <span>Vermogen</span>
+
                 <strong>
                   {vehicle.vermogenKw
                     ? `${vehicle.vermogenKw} kW / ${Math.round(
@@ -344,62 +369,79 @@ export default function Home() {
                     : 'Onbekend'}
                 </strong>
               </div>
+
             </div>
+
           </div>
 
-          {vehicleFinder?.vehicle && (
+          {/* Vehicle Finder match */}
+
+          {matchedVehicle && (
+
             <div className="vehicleCard">
+
               <span className="label">
                 Automatische voertuigmatch
               </span>
 
               <h2>
-                {vehicleFinder.vehicle.make}{' '}
-                {vehicleFinder.vehicle.model}
+                {matchedVehicle.make}{' '}
+                {matchedVehicle.model}
               </h2>
 
               <div className="specGrid">
+
                 <div>
                   <span>Vehicle ID</span>
+
                   <strong>
-                    {vehicleFinder.vehicle.id ||
+                    {matchedVehicle.id ||
                       'Onbekend'}
                   </strong>
                 </div>
 
                 <div>
                   <span>Bouwjaar</span>
+
                   <strong>
-                    {vehicleFinder.vehicle.year ||
+                    {matchedVehicle.year ||
                       'Onbekend'}
                   </strong>
                 </div>
 
                 <div>
                   <span>Motor</span>
+
                   <strong>
-                    {vehicleFinder.vehicle
-                      .engine ||
+                    {matchedVehicle.engine ||
                       'Niet beschikbaar'}
                   </strong>
                 </div>
 
                 <div>
                   <span>
-                    Exacte match
+                    Oliegegevens
                   </span>
+
                   <strong>
-                    {safeAutomaticMatch
-                      ? 'Ja'
-                      : 'Nog niet'}
+                    {automaticOil
+                      ? 'Gevonden'
+                      : 'Niet gevonden'}
                   </strong>
                 </div>
+
               </div>
+
             </div>
+
           )}
 
+          {/* Automatisch olieadvies */}
+
           {automaticOil && (
+
             <div className="vehicleCard">
+
               <span className="label">
                 Automatisch olieadvies
               </span>
@@ -410,10 +452,12 @@ export default function Home() {
               </h2>
 
               <div className="specGrid">
+
                 <div>
                   <span>
                     Viscositeit
                   </span>
+
                   <strong>
                     {automaticOil.viscosity ||
                       'Onbekend'}
@@ -424,6 +468,7 @@ export default function Home() {
                   <span>
                     OEM-specificatie
                   </span>
+
                   <strong>
                     {automaticOil.oem_spec ||
                       'Onbekend'}
@@ -434,6 +479,7 @@ export default function Home() {
                   <span>
                     Type olie
                   </span>
+
                   <strong>
                     {automaticOil.oil_type ||
                       'Onbekend'}
@@ -444,6 +490,7 @@ export default function Home() {
                   <span>
                     Inhoud met filter
                   </span>
+
                   <strong>
                     {automaticOil.capacity_with_filter
                       ? `${automaticOil.capacity_with_filter} liter`
@@ -455,24 +502,34 @@ export default function Home() {
                   <span>
                     Inhoud zonder filter
                   </span>
+
                   <strong>
                     {automaticOil.capacity_without_filter
                       ? `${automaticOil.capacity_without_filter} liter`
                       : 'Onbekend'}
                   </strong>
                 </div>
+
               </div>
+
             </div>
+
           )}
 
           {oilError && (
+
             <div className="message error">
               {oilError}
             </div>
+
           )}
 
+          {/* Lokale fallback motorherkenning */}
+
           {fallbackOilMatch && (
+
             <div className="vehicleCard">
+
               <span className="label">
                 Motor herkend
               </span>
@@ -480,15 +537,9 @@ export default function Home() {
               <h2>
                 {fallbackOilMatch.engine.naam}{' '}
                 –{' '}
-                {
-                  fallbackOilMatch.engine
-                    .vermogenKw
-                }{' '}
+                {fallbackOilMatch.engine.vermogenKw}{' '}
                 kW /{' '}
-                {
-                  fallbackOilMatch.engine
-                    .vermogenPk
-                }{' '}
+                {fallbackOilMatch.engine.vermogenPk}{' '}
                 pk
               </h2>
 
@@ -496,20 +547,25 @@ export default function Home() {
                 <strong>
                   Motorcode:
                 </strong>{' '}
-                {
-                  fallbackOilMatch.engine
-                    .motorcode
-                }
+                {fallbackOilMatch.engine.motorcode}
               </p>
+
             </div>
+
           )}
+
+          {/* Producten */}
 
           <h3>
             Motorolie per merk
           </h3>
 
           <div className="brandGrid">
+
+            {/* Shell */}
+
             <article className="brandCard">
+
               <span className="brandName">
                 Shell
               </span>
@@ -533,9 +589,7 @@ export default function Home() {
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {shellProduct.specs.join(
-                    ' / '
-                  )}
+                  {shellProduct.specs.join(' / ')}
                 </p>
               )}
 
@@ -544,9 +598,13 @@ export default function Home() {
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
+
             </article>
 
+            {/* OK Olie */}
+
             <article className="brandCard">
+
               <span className="brandName">
                 OK Olie
               </span>
@@ -570,9 +628,7 @@ export default function Home() {
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {okProduct.specs.join(
-                    ' / '
-                  )}
+                  {okProduct.specs.join(' / ')}
                 </p>
               )}
 
@@ -581,9 +637,13 @@ export default function Home() {
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
+
             </article>
 
+            {/* MPM */}
+
             <article className="brandCard">
+
               <span className="brandName">
                 MPM
               </span>
@@ -607,9 +667,7 @@ export default function Home() {
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {mpmProduct.specs.join(
-                    ' / '
-                  )}
+                  {mpmProduct.specs.join(' / ')}
                 </p>
               )}
 
@@ -618,10 +676,15 @@ export default function Home() {
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
+
             </article>
+
           </div>
+
         </section>
+
       )}
+
     </main>
   )
 }
