@@ -99,8 +99,6 @@ export async function GET(request) {
   } catch (error) {
     console.error('RDW lookup failed:', error)
 
-    return NextResponse.json(
-      {
 return NextResponse.json({
   kenteken,
   merk: v.merk || 'Onbekend',
