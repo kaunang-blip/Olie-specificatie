@@ -25,7 +25,7 @@ export default function Home() {
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/vehicle?kenteken=${encodeURIComponent(clean)}`)
+      const response = await fetch(`/api/rdw?kenteken=${encodeURIComponent(clean)}`)
       const data = await response.json()
 
       if (!response.ok) {
