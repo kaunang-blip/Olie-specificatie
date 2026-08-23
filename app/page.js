@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
+import { findOilMatch } from '../lib/oilMatches'
 function formatKenteken(value) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
 }
@@ -11,7 +11,7 @@ export default function Home() {
   const [vehicle, setVehicle] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
+  const oilMatch = findOilMatch(vehicle)
   async function zoeken(e) {
     e.preventDefault()
     setError('')
@@ -88,17 +88,30 @@ export default function Home() {
   </strong>
 </div>            </div>
           </div>
-{vehicle.merk === 'AUDI' &&
- vehicle.handelsbenaming?.includes('A4') &&
- vehicle.brandstof?.includes('Benzine') &&
- vehicle.cilinderinhoud === 1798 &&
- vehicle.vermogenKw === 88 && (
+{oilMatch && (
   <div className="vehicleCard">
     <span className="label">Motor herkend</span>
-    <h2>1.8 TFSI – 88 kW / 120 pk</h2>
-    <p>Waarschijnlijke motorcode: CDHA</p>
-    <p><strong>Oliespecificatie:</strong> VW 502 00 / VW 504 00 LongLife</p>
+
+    <h2>
+      {oilMatch.engine.naam} – {oilMatch.engine.vermogenKw} kW / {oilMatch.engine.vermogenPk} pk
+    </h2>
+
+    <p>
+      <strong>Motorcode:</strong>{' '}
+      {oilMatch.engine.motorcode}
+    </p>
+
+    <p>
+      <strong>Oliespecificatie:</strong>{' '}
+      {oilMatch.oil.oemSpecificaties.join(' / ')}
+    </p>
+
+    <p>
+      <strong>Mogelijke viscositeit:</strong>{' '}
+      {oilMatch.oil.viscositeiten.join(' / ')}
+    </p>
   </div>
+)}  </div>
 )}          <h3>Motorolie</h3>
           <div className="brandGrid">
             {['Shell', 'OK Olie', 'MPM'].map((brand) => (
