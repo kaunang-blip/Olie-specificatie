@@ -4,7 +4,10 @@ import { useState } from 'react'
 import { findOilMatch } from './lib/oilMatches'
 
 function formatKenteken(value) {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 8)
 }
 
 function getYear(date) {
@@ -25,8 +28,14 @@ function getVehicleFinderModel(vehicle) {
   if (vehicle.merk) {
     const merk = vehicle.merk.trim()
 
-    if (model.toUpperCase().startsWith(merk.toUpperCase())) {
-      model = model.slice(merk.length).trim()
+    if (
+      model
+        .toUpperCase()
+        .startsWith(merk.toUpperCase())
+    ) {
+      model = model
+        .slice(merk.length)
+        .trim()
     }
   }
 
@@ -55,14 +64,16 @@ export default function Home() {
     const clean = formatKenteken(kenteken)
 
     if (clean.length < 6) {
-      setError('Vul een geldig Nederlands kenteken in.')
+      setError(
+        'Vul een geldig Nederlands kenteken in.'
+      )
       return
     }
 
     setLoading(true)
 
     try {
-      // STAP 1: RDW
+      // 1. RDW voertuig opzoeken
       const rdwResponse = await fetch(
         `/api/rdw?kenteken=${encodeURIComponent(clean)}`
       )
@@ -71,16 +82,22 @@ export default function Home() {
 
       if (!rdwResponse.ok) {
         throw new Error(
-          rdwData.error || 'Voertuig niet gevonden.'
+          rdwData.error ||
+            'Voertuig niet gevonden.'
         )
       }
 
       setVehicle(rdwData)
 
-      // STAP 2: gegevens voorbereiden voor Vehicle Finder
-      const year = getYear(rdwData.datumEersteToelating)
+      // 2. Gegevens voor Vehicle Finder voorbereiden
+      const year = getYear(
+        rdwData.datumEersteToelating
+      )
+
       const make = rdwData.merk
-      const model = getVehicleFinderModel(rdwData)
+
+      const model =
+        getVehicleFinderModel(rdwData)
 
       if (!year || !make || !model) {
         setOilError(
@@ -89,28 +106,44 @@ export default function Home() {
         return
       }
 
-      // STAP 3: Vehicle Finder
+      // 3. Vehicle Finder aanroepen
       try {
         const vfResponse = await fetch(
-         `/api/vehicle-finder?year=${encodeURIComponent(year)}` +
-`&make=${encodeURIComponent(make)}` +
-`&model=${encodeURIComponent(model)}` +
-`&cilinderinhoud=${encodeURIComponent(rdwData.cilinderinhoud || '')}` +
-`&vermogenKw=${encodeURIComponent(rdwData.vermogenKw || '')}`        
+          `/api/vehicle-finder?year=${encodeURIComponent(year)}` +
+            `&make=${encodeURIComponent(make)}` +
+            `&model=${encodeURIComponent(model)}` +
+            `&cilinderinhoud=${encodeURIComponent(
+              rdwData.cilinderinhoud || ''
+            )}` +
+            `&vermogenKw=${encodeURIComponent(
+              rdwData.vermogenKw || ''
+            )}`
+        )
 
-        const vfData = await vfResponse.json()
+        const vfData =
+          await vfResponse.json()
 
         if (!vfResponse.ok) {
           setOilError(
             vfData.error ||
-            'Automatische oliegegevens konden niet worden gevonden.'
+              'Automatische oliegegevens konden niet worden gevonden.'
           )
           return
         }
 
         setVehicleFinder(vfData)
+
+        if (
+          vfData.safeMatch === false &&
+          vfData.warning
+        ) {
+          setOilError(vfData.warning)
+        }
       } catch (vfError) {
-        console.error(vfError)
+        console.error(
+          'Vehicle Finder fout:',
+          vfError
+        )
 
         setOilError(
           'Vehicle Finder kon tijdelijk niet worden bereikt.'
@@ -119,14 +152,20 @@ export default function Home() {
     } catch (err) {
       setError(
         err.message ||
-        'Er ging iets mis bij het opzoeken.'
+          'Er ging iets mis bij het opzoeken.'
       )
     } finally {
       setLoading(false)
     }
   }
 
-  const automaticOil = vehicleFinder?.oil?.oil_spec
+  const safeAutomaticMatch =
+    vehicleFinder?.safeMatch === true
+
+  const automaticOil =
+    safeAutomaticMatch
+      ? vehicleFinder?.oil?.oil_spec
+      : null
 
   return (
     <main className="shell">
@@ -140,8 +179,9 @@ export default function Home() {
         </h1>
 
         <p>
-          Voer je kenteken in. De app zoekt automatisch het voertuig
-          en de beschikbare oliegegevens op.
+          Voer je kenteken in. De app zoekt
+          automatisch het voertuig en de
+          beschikbare oliegegevens op.
         </p>
 
         <form
@@ -156,7 +196,9 @@ export default function Home() {
             <input
               value={kenteken}
               onChange={(e) =>
-                setKenteken(e.target.value)
+                setKenteken(
+                  e.target.value
+                )
               }
               placeholder="AB123C"
               aria-label="Kenteken"
@@ -185,6 +227,8 @@ export default function Home() {
 
       {vehicle && (
         <section className="results">
+          {/* RDW VOERTUIGGEGEVENS */}
+
           <div className="vehicleCard">
             <div>
               <span className="label">
@@ -252,13 +296,15 @@ export default function Home() {
                   {vehicle.vermogenKw
                     ? `${vehicle.vermogenKw} kW / ${Math.round(
                         vehicle.vermogenKw *
-                        1.35962
+                          1.35962
                       )} pk`
                     : 'Onbekend'}
                 </strong>
               </div>
             </div>
           </div>
+
+          {/* VEHICLE FINDER MATCH */}
 
           {vehicleFinder?.vehicle && (
             <div className="vehicleCard">
@@ -271,21 +317,57 @@ export default function Home() {
                 {vehicleFinder.vehicle.model}
               </h2>
 
-              <p>
-                <strong>
-                  Vehicle ID:
-                </strong>{' '}
-                {vehicleFinder.vehicle.id}
-              </p>
+              <div className="specGrid">
+                <div>
+                  <span>
+                    Vehicle ID
+                  </span>
 
-              <p>
-                <strong>
-                  Bouwjaar:
-                </strong>{' '}
-                {vehicleFinder.vehicle.year}
-              </p>
+                  <strong>
+                    {vehicleFinder.vehicle.id ||
+                      'Onbekend'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Bouwjaar
+                  </span>
+
+                  <strong>
+                    {vehicleFinder.vehicle.year ||
+                      'Onbekend'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Motor
+                  </span>
+
+                  <strong>
+                    {vehicleFinder.vehicle
+                      .engine ||
+                      'Niet beschikbaar'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Exacte match
+                  </span>
+
+                  <strong>
+                    {safeAutomaticMatch
+                      ? 'Ja'
+                      : 'Nog niet'}
+                  </strong>
+                </div>
+              </div>
             </div>
           )}
+
+          {/* AUTOMATISCH OLIEADVIES */}
 
           {automaticOil && (
             <div className="vehicleCard">
@@ -323,7 +405,18 @@ export default function Home() {
 
                 <div>
                   <span>
-                    Olie-inhoud met filter
+                    Type olie
+                  </span>
+
+                  <strong>
+                    {automaticOil.oil_type ||
+                      'Onbekend'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Inhoud met filter
                   </span>
 
                   <strong>
@@ -335,7 +428,7 @@ export default function Home() {
 
                 <div>
                   <span>
-                    Olie-inhoud zonder filter
+                    Inhoud zonder filter
                   </span>
 
                   <strong>
@@ -344,26 +437,19 @@ export default function Home() {
                       : 'Onbekend'}
                   </strong>
                 </div>
-
-                <div>
-                  <span>
-                    Type olie
-                  </span>
-
-                  <strong>
-                    {automaticOil.oil_type ||
-                      'Onbekend'}
-                  </strong>
-                </div>
               </div>
             </div>
           )}
+
+          {/* WAARSCHUWING ALS MOTOR NIET ZEKER IS */}
 
           {oilError && (
             <div className="message error">
               {oilError}
             </div>
           )}
+
+          {/* TIJDELIJKE HANDMATIGE MOTORHERKENNING */}
 
           {oilMatch && (
             <div className="vehicleCard">
@@ -372,10 +458,17 @@ export default function Home() {
               </span>
 
               <h2>
-                {oilMatch.engine.naam} –{' '}
-                {oilMatch.engine.vermogenKw}{' '}
+                {oilMatch.engine.naam}{' '}
+                –{' '}
+                {
+                  oilMatch.engine
+                    .vermogenKw
+                }{' '}
                 kW /{' '}
-                {oilMatch.engine.vermogenPk}{' '}
+                {
+                  oilMatch.engine
+                    .vermogenPk
+                }{' '}
                 pk
               </h2>
 
@@ -383,16 +476,23 @@ export default function Home() {
                 <strong>
                   Motorcode:
                 </strong>{' '}
-                {oilMatch.engine.motorcode}
+                {
+                  oilMatch.engine
+                    .motorcode
+                }
               </p>
             </div>
           )}
+
+          {/* OLIEPRODUCTEN */}
 
           <h3>
             Motorolie per merk
           </h3>
 
           <div className="brandGrid">
+            {/* SHELL */}
+
             <article className="brandCard">
               <span className="brandName">
                 Shell
@@ -411,7 +511,8 @@ export default function Home() {
                     Viscositeit:
                   </strong>{' '}
                   {
-                    oilMatch.oil.shell
+                    oilMatch.oil
+                      .shell
                       .viscositeit
                   }
                 </p>
@@ -424,7 +525,8 @@ export default function Home() {
                     Specificatie:
                   </strong>{' '}
                   {
-                    oilMatch.oil.shell
+                    oilMatch.oil
+                      .shell
                       .specificatie
                   }
                 </p>
@@ -432,11 +534,14 @@ export default function Home() {
 
               <span className="status">
                 {oilMatch?.oil?.shell
-                  ?.status === 'matched'
+                  ?.status ===
+                'matched'
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
             </article>
+
+            {/* OK OLIE */}
 
             <article className="brandCard">
               <span className="brandName">
@@ -477,11 +582,14 @@ export default function Home() {
 
               <span className="status">
                 {oilMatch?.oil?.ok
-                  ?.status === 'matched'
+                  ?.status ===
+                'matched'
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
             </article>
+
+            {/* MPM */}
 
             <article className="brandCard">
               <span className="brandName">
@@ -522,7 +630,8 @@ export default function Home() {
 
               <span className="status">
                 {oilMatch?.oil?.mpm
-                  ?.status === 'matched'
+                  ?.status ===
+                'matched'
                   ? 'Match gevonden'
                   : 'Nog te koppelen'}
               </span>
