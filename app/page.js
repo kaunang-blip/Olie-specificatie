@@ -92,10 +92,11 @@ export default function Home() {
       // STAP 3: Vehicle Finder
       try {
         const vfResponse = await fetch(
-          `/api/vehicle-finder?year=${encodeURIComponent(year)}` +
-          `&make=${encodeURIComponent(make)}` +
-          `&model=${encodeURIComponent(model)}`
-        )
+         `/api/vehicle-finder?year=${encodeURIComponent(year)}` +
+`&make=${encodeURIComponent(make)}` +
+`&model=${encodeURIComponent(model)}` +
+`&cilinderinhoud=${encodeURIComponent(rdwData.cilinderinhoud || '')}` +
+`&vermogenKw=${encodeURIComponent(rdwData.vermogenKw || '')}`        
 
         const vfData = await vfResponse.json()
 
