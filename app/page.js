@@ -169,25 +169,88 @@ export default function Home() {
 
           <h3>Motorolie</h3>
 
-          <div className="brandGrid">
-            {['Shell', 'OK Olie', 'MPM'].map((brand) => (
-              <article className="brandCard" key={brand}>
-                <span className="brandName">
-                  {brand}
-                </span>
+<div className="brandGrid">
+  <article className="brandCard">
+    <span className="brandName">Shell</span>
 
-                <p>
-                  Wordt gekoppeld aan de exacte motorspecificatie.
-                </p>
+    <p>
+      {oilMatch?.oil?.shell?.product || 'Nog te koppelen'}
+    </p>
 
-                <span className="status">
-                  Nog te koppelen
-                </span>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-    </main>
-  )
-}
+    {oilMatch?.oil?.shell?.viscositeit && (
+      <p>
+        <strong>Viscositeit:</strong>{' '}
+        {oilMatch.oil.shell.viscositeit}
+      </p>
+    )}
+
+    {oilMatch?.oil?.shell?.specificatie && (
+      <p>
+        <strong>Specificatie:</strong>{' '}
+        {oilMatch.oil.shell.specificatie}
+      </p>
+    )}
+
+    <span className="status">
+      {oilMatch?.oil?.shell?.status === 'matched'
+        ? 'Match gevonden'
+        : 'Nog te koppelen'}
+    </span>
+  </article>
+
+  <article className="brandCard">
+    <span className="brandName">OK Olie</span>
+
+    <p>
+      {oilMatch?.oil?.ok?.product || 'Nog te koppelen'}
+    </p>
+
+    {oilMatch?.oil?.ok?.viscositeit && (
+      <p>
+        <strong>Viscositeit:</strong>{' '}
+        {oilMatch.oil.ok.viscositeit}
+      </p>
+    )}
+
+    {oilMatch?.oil?.ok?.specificatie && (
+      <p>
+        <strong>Specificatie:</strong>{' '}
+        {oilMatch.oil.ok.specificatie}
+      </p>
+    )}
+
+    <span className="status">
+      {oilMatch?.oil?.ok?.status === 'matched'
+        ? 'Match gevonden'
+        : 'Nog te koppelen'}
+    </span>
+  </article>
+
+  <article className="brandCard">
+    <span className="brandName">MPM</span>
+
+    <p>
+      {oilMatch?.oil?.mpm?.product || 'Nog te koppelen'}
+    </p>
+
+    {oilMatch?.oil?.mpm?.viscositeit && (
+      <p>
+        <strong>Viscositeit:</strong>{' '}
+        {oilMatch.oil.mpm.viscositeit}
+      </p>
+    )}
+
+    {oilMatch?.oil?.mpm?.specificatie && (
+      <p>
+        <strong>Specificatie:</strong>{' '}
+        {oilMatch.oil.mpm.specificatie}
+      </p>
+    )}
+
+    <span className="status">
+      {oilMatch?.oil?.mpm?.status === 'matched'
+        ? 'Match gevonden'
+        : 'Nog te koppelen'}
+    </span>
+  </article>
+</div>
