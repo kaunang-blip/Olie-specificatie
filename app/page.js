@@ -88,8 +88,18 @@ export default function Home() {
   </strong>
 </div>            </div>
           </div>
-
-          <h3>Motorolie</h3>
+{vehicle.merk === 'AUDI' &&
+ vehicle.handelsbenaming?.includes('A4') &&
+ vehicle.brandstof?.includes('Benzine') &&
+ vehicle.cilinderinhoud === 1798 &&
+ vehicle.vermogenKw === 88 && (
+  <div className="vehicleCard">
+    <span className="label">Motor herkend</span>
+    <h2>1.8 TFSI – 88 kW / 120 pk</h2>
+    <p>Waarschijnlijke motorcode: CDHA</p>
+    <p><strong>Oliespecificatie:</strong> VW 502 00 / VW 504 00 LongLife</p>
+  </div>
+)}          <h3>Motorolie</h3>
           <div className="brandGrid">
             {['Shell', 'OK Olie', 'MPM'].map((brand) => (
               <article className="brandCard" key={brand}>
