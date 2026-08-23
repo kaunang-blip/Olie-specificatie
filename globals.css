@@ -1,0 +1,38 @@
+* { box-sizing: border-box; }
+html { background: #f4f6f8; }
+body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #15202b; }
+button, input { font: inherit; }
+.shell { min-height: 100vh; padding: 48px 20px 80px; }
+.hero, .results { width: min(920px, 100%); margin: 0 auto; }
+.hero { background: white; padding: 42px; border-radius: 24px; box-shadow: 0 18px 50px rgba(21,32,43,.08); }
+.eyebrow { display: inline-block; font-weight: 800; letter-spacing: .12em; font-size: 12px; padding: 8px 10px; border-radius: 999px; background: #eaf1ff; }
+h1 { font-size: clamp(34px, 6vw, 58px); line-height: 1.02; margin: 18px 0 14px; max-width: 760px; }
+.hero p { color: #53616d; line-height: 1.6; max-width: 720px; }
+.searchForm { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+.plate { display: flex; min-width: min(100%, 360px); height: 62px; background: #ffd21a; border: 2px solid #1d2630; border-radius: 10px; overflow: hidden; }
+.eu { display: grid; place-items: center; width: 52px; background: #1243a3; color: white; font-weight: 800; font-size: 13px; }
+.plate input { width: 100%; border: 0; background: transparent; outline: none; text-align: center; font-size: 27px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; padding: 0 16px; }
+.searchForm button { border: 0; border-radius: 10px; padding: 0 24px; min-height: 62px; background: #111820; color: white; font-weight: 800; cursor: pointer; }
+.searchForm button:disabled { opacity: .65; cursor: wait; }
+.message { margin-top: 18px; padding: 14px 16px; border-radius: 10px; }
+.error { background: #fff1f1; color: #9f2020; }
+.results { margin-top: 28px; }
+.vehicleCard { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 14px 35px rgba(21,32,43,.06); }
+.label { font-size: 13px; font-weight: 800; color: #687684; text-transform: uppercase; letter-spacing: .08em; }
+h2 { margin: 8px 0 24px; font-size: 30px; }
+.specGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.specGrid div { padding: 16px; background: #f5f7f9; border-radius: 12px; }
+.specGrid span, .specGrid strong { display: block; }
+.specGrid span { color: #70808d; font-size: 13px; margin-bottom: 6px; }
+h3 { margin: 34px 0 14px; font-size: 24px; }
+.brandGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.brandCard { background: white; padding: 22px; border-radius: 16px; min-height: 180px; box-shadow: 0 10px 28px rgba(21,32,43,.05); }
+.brandName { font-weight: 900; font-size: 22px; }
+.brandCard p { color: #66737f; line-height: 1.5; }
+.status { display: inline-block; font-size: 12px; font-weight: 800; padding: 7px 9px; border-radius: 999px; background: #eef1f4; }
+@media (max-width: 700px) {
+  .shell { padding: 20px 14px 50px; }
+  .hero { padding: 26px 20px; border-radius: 18px; }
+  .searchForm, .searchForm button, .plate { width: 100%; }
+  .specGrid, .brandGrid { grid-template-columns: 1fr; }
+}
