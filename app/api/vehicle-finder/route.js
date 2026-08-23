@@ -17,6 +17,14 @@ export async function GET(request) {
     const make = request.nextUrl.searchParams.get('make')
     const model = request.nextUrl.searchParams.get('model')
 
+    const rdwCilinderinhoud = Number(
+      request.nextUrl.searchParams.get('cilinderinhoud')
+    )
+
+    const rdwVermogenKw = Number(
+      request.nextUrl.searchParams.get('vermogenKw')
+    )
+
     if (!year || !make || !model) {
       return NextResponse.json(
         { error: 'Year, make en model zijn verplicht.' },
@@ -59,6 +67,12 @@ export async function GET(request) {
       )
     }
 
+    /*
+      Vehicle Finder geeft bij sommige resultaten geen engine of trim.
+      Daarom accepteren we niet automatisch dat het eerste resultaat
+      ook de exacte motorvariant van het RDW-voertuig is.
+    */
+
     const vehicle = vehicles[0]
 
     if (!vehicle?.id) {
@@ -66,6 +80,30 @@ export async function GET(request) {
         { error: 'Vehicle Finder gaf geen vehicle_id terug.' },
         { status: 502 }
       )
+    }
+
+    const exactEngineKnown =
+      vehicle.engine !== null &&
+      vehicle.engine !== undefined &&
+      String(vehicle.engine).trim() !== ''
+
+    if (!exactEngineKnown) {
+      return NextResponse.json({
+        vehicle,
+        safeMatch: false,
+        rdw: {
+          cilinderinhoud:
+            Number.isFinite(rdwCilinderinhoud)
+              ? rdwCilinderinhoud
+              : null,
+          vermogenKw:
+            Number.isFinite(rdwVermogenKw)
+              ? rdwVermogenKw
+              : null
+        },
+        warning:
+          'Vehicle Finder heeft geen exacte motorvariant teruggegeven. Daarom wordt nog geen automatisch olieadvies getoond.'
+      })
     }
 
     const oilUrl =
@@ -93,6 +131,17 @@ export async function GET(request) {
 
     return NextResponse.json({
       vehicle,
+      safeMatch: true,
+      rdw: {
+        cilinderinhoud:
+          Number.isFinite(rdwCilinderinhoud)
+            ? rdwCilinderinhoud
+            : null,
+        vermogenKw:
+          Number.isFinite(rdwVermogenKw)
+            ? rdwVermogenKw
+            : null
+      },
       oil: oilData?.data || oilData
     })
   } catch (error) {
