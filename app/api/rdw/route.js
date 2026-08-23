@@ -101,6 +101,7 @@ export async function GET(request) {
 
     return NextResponse.json(
       {
+        type: v.type || null,
         error: 'RDW kon tijdelijk niet worden bereikt. Probeer het opnieuw.'
       },
       { status: 502 }
