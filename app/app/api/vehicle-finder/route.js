@@ -24,31 +24,77 @@ export async function GET(request) {
       )
     }
 
-    const url =
+    const vehicleUrl =
       `${API_BASE}/vehicles?year=${encodeURIComponent(year)}` +
       `&make=${encodeURIComponent(make)}` +
       `&model=${encodeURIComponent(model)}`
 
-    const response = await fetch(url, {
+    const vehicleResponse = await fetch(vehicleUrl, {
       headers: {
         'X-API-Key': apiKey
       },
       cache: 'no-store'
     })
 
-    const data = await response.json()
+    const vehicleData = await vehicleResponse.json()
 
-    if (!response.ok) {
+    if (!vehicleResponse.ok) {
       return NextResponse.json(
         {
-          error: 'Vehicle Finder gaf een fout.',
-          details: data
+          error: 'Vehicle Finder voertuigzoeking gaf een fout.',
+          details: vehicleData
         },
-        { status: response.status }
+        { status: vehicleResponse.status }
       )
     }
 
-    return NextResponse.json(data)
+    const vehicles = Array.isArray(vehicleData?.data)
+      ? vehicleData.data
+      : []
+
+    if (vehicles.length === 0) {
+      return NextResponse.json(
+        { error: 'Geen passend voertuig gevonden bij Vehicle Finder.' },
+        { status: 404 }
+      )
+    }
+
+    const vehicle = vehicles[0]
+
+    if (!vehicle?.id) {
+      return NextResponse.json(
+        { error: 'Vehicle Finder gaf geen vehicle_id terug.' },
+        { status: 502 }
+      )
+    }
+
+    const oilUrl =
+      `${API_BASE}/vehicles/${encodeURIComponent(vehicle.id)}/oil-change`
+
+    const oilResponse = await fetch(oilUrl, {
+      headers: {
+        'X-API-Key': apiKey
+      },
+      cache: 'no-store'
+    })
+
+    const oilData = await oilResponse.json()
+
+    if (!oilResponse.ok) {
+      return NextResponse.json(
+        {
+          error: 'Vehicle Finder oil-change gaf een fout.',
+          vehicle,
+          details: oilData
+        },
+        { status: oilResponse.status }
+      )
+    }
+
+    return NextResponse.json({
+      vehicle,
+      oil: oilData?.data || oilData
+    })
   } catch (error) {
     console.error('Vehicle Finder lookup failed:', error)
 
