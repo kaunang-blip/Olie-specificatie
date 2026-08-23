@@ -18,34 +18,27 @@ export const oilMatches = [
     },
 
     oil: {
-      oemSpecificaties: [
-        'VW 502 00',
-        'VW 504 00'
-      ],
-
-      viscositeiten: [
-        '5W-30',
-        '5W-40'
-      ],
+      viscositeit: '5W-30',
+      oemSpecificatie: 'VW 502 00',
 
       shell: {
-        product: 'Shell Helix Ultra Professional AV-L 5W-30',
+        product: 'Shell Helix Ultra 5W-30',
         viscositeit: '5W-30',
-        specificatie: 'VW 504 00 / 507 00',
+        specificatie: 'VW 502 00 / 505 00',
         status: 'matched'
       },
 
       ok: {
-  product: 'OK 1016 X Long Life 5W-30',
-  viscositeit: '5W-30',
-  specificatie: 'VW 504 00 / 507 00',
-  status: 'matched'
-},      
+        product: 'Nog niet bevestigd',
+        viscositeit: null,
+        specificatie: 'VW 502 00',
+        status: 'pending'
+      },
 
       mpm: {
-        product: 'MPM Motor Oil 5W-30 Premium Synthetic ESP-X',
+        product: 'MPM Motor Oil 5W-30 Premium Synthetic BMW / MB',
         viscositeit: '5W-30',
-        specificatie: 'VW 504 00 / 507 00',
+        specificatie: 'VW 502 00 / 505 00',
         status: 'matched'
       }
     }
@@ -53,47 +46,56 @@ export const oilMatches = [
 ]
 
 export function findOilMatch(vehicle) {
-  if (!vehicle) return null
+  if (!vehicle) {
+    return null
+  }
 
   return (
     oilMatches.find((item) => {
-      const m = item.match
+      const match = item.match
 
       if (
-        m.merk &&
-        vehicle.merk?.toUpperCase() !== m.merk.toUpperCase()
+        match.merk &&
+        vehicle.merk?.toUpperCase() !==
+          match.merk.toUpperCase()
       ) {
         return false
       }
 
       if (
-        m.handelsbenamingContains &&
+        match.handelsbenamingContains &&
         !vehicle.handelsbenaming
           ?.toUpperCase()
-          .includes(m.handelsbenamingContains.toUpperCase())
+          .includes(
+            match.handelsbenamingContains.toUpperCase()
+          )
       ) {
         return false
       }
 
       if (
-        m.brandstofContains &&
+        match.brandstofContains &&
         !vehicle.brandstof
           ?.toUpperCase()
-          .includes(m.brandstofContains.toUpperCase())
+          .includes(
+            match.brandstofContains.toUpperCase()
+          )
       ) {
         return false
       }
 
       if (
-        m.cilinderinhoud &&
-        Number(vehicle.cilinderinhoud) !== m.cilinderinhoud
+        match.cilinderinhoud &&
+        Number(vehicle.cilinderinhoud) !==
+          Number(match.cilinderinhoud)
       ) {
         return false
       }
 
       if (
-        m.vermogenKw &&
-        Number(vehicle.vermogenKw) !== m.vermogenKw
+        match.vermogenKw &&
+        Number(vehicle.vermogenKw) !==
+          Number(match.vermogenKw)
       ) {
         return false
       }
