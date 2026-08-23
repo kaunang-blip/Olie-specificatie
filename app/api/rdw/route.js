@@ -101,7 +101,25 @@ export async function GET(request) {
 
     return NextResponse.json(
       {
-        type: v.type || null,
+return NextResponse.json({
+  kenteken,
+  merk: v.merk || 'Onbekend',
+  handelsbenaming: v.handelsbenaming || '',
+  type: v.type || null,
+  voertuigsoort: v.voertuigsoort || null,
+  inrichting: v.inrichting || null,
+  datumEersteToelating: formatDate(v.datum_eerste_toelating),
+  cilinderinhoud: v.cilinderinhoud
+    ? Number(v.cilinderinhoud)
+    : null,
+  aantalCilinders: v.aantal_cilinders
+    ? Number(v.aantal_cilinders)
+    : null,
+  variant: v.variant || null,
+  uitvoering: v.uitvoering || null,
+  typegoedkeuringsnummer: v.typegoedkeuringsnummer || null,
+  brandstof: brandstof || null
+})
         error: 'RDW kon tijdelijk niet worden bereikt. Probeer het opnieuw.'
       },
       { status: 502 }
