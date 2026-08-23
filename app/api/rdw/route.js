@@ -91,7 +91,7 @@ export async function GET(request) {
       variant: v.variant || null,
       uitvoering: v.uitvoering || null,
       typegoedkeuringsnummer: v.typegoedkeuringsnummer || null,
-      brandstof: brandstof || null
+      brandstof: brandstof || null,
       vermogenKw,    })
   } catch (error) {
     console.error('RDW lookup failed:', error)
