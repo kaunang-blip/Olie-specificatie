@@ -79,7 +79,14 @@ export default function Home() {
               <div><span>Bouwjaar / toelating</span><strong>{vehicle.datumEersteToelating || 'Onbekend'}</strong></div>
               <div><span>Cilinderinhoud</span><strong>{vehicle.cilinderinhoud ? `${vehicle.cilinderinhoud} cc` : 'Onbekend'}</strong></div>
               <div><span>Variant</span><strong>{vehicle.variant || 'Onbekend'}</strong></div>
-            </div>
+        <div>
+  <span>Vermogen</span>
+  <strong>
+    {vehicle.vermogenKw
+      ? `${vehicle.vermogenKw} kW / ${Math.round(vehicle.vermogenKw * 1.35962)} pk`
+      : 'Onbekend'}
+  </strong>
+</div>            </div>
           </div>
 
           <h3>Motorolie</h3>
