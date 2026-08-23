@@ -11,7 +11,6 @@ function formatDate(value) {
   if (!value) return null
 
   const str = String(value)
-
   if (str.length !== 8) return null
 
   return `${str.slice(6, 8)}-${str.slice(4, 6)}-${str.slice(0, 4)}`
@@ -36,19 +35,13 @@ export async function GET(request) {
       `${FUEL_ENDPOINT}?kenteken=${encodeURIComponent(kenteken)}&%24limit=10`
 
     const [vehicleResponse, fuelResponse] = await Promise.all([
-      fetch(vehicleUrl, {
-        cache: 'no-store'
-      }),
-      fetch(fuelUrl, {
-        cache: 'no-store'
-      })
+      fetch(vehicleUrl, { cache: 'no-store' }),
+      fetch(fuelUrl, { cache: 'no-store' })
     ])
 
     if (!vehicleResponse.ok) {
       return NextResponse.json(
-        {
-          error: `RDW voertuigservice gaf status ${vehicleResponse.status}`
-        },
+        { error: `RDW voertuigservice gaf status ${vehicleResponse.status}` },
         { status: 502 }
       )
     }
@@ -81,6 +74,7 @@ export async function GET(request) {
       kenteken,
       merk: v.merk || 'Onbekend',
       handelsbenaming: v.handelsbenaming || '',
+      type: v.type || null,
       voertuigsoort: v.voertuigsoort || null,
       inrichting: v.inrichting || null,
       datumEersteToelating: formatDate(v.datum_eerste_toelating),
@@ -95,29 +89,11 @@ export async function GET(request) {
       typegoedkeuringsnummer: v.typegoedkeuringsnummer || null,
       brandstof: brandstof || null
     })
-
   } catch (error) {
     console.error('RDW lookup failed:', error)
 
-return NextResponse.json({
-  kenteken,
-  merk: v.merk || 'Onbekend',
-  handelsbenaming: v.handelsbenaming || '',
-  type: v.type || null,
-  voertuigsoort: v.voertuigsoort || null,
-  inrichting: v.inrichting || null,
-  datumEersteToelating: formatDate(v.datum_eerste_toelating),
-  cilinderinhoud: v.cilinderinhoud
-    ? Number(v.cilinderinhoud)
-    : null,
-  aantalCilinders: v.aantal_cilinders
-    ? Number(v.aantal_cilinders)
-    : null,
-  variant: v.variant || null,
-  uitvoering: v.uitvoering || null,
-  typegoedkeuringsnummer: v.typegoedkeuringsnummer || null,
-  brandstof: brandstof || null
-})
+    return NextResponse.json(
+      {
         error: 'RDW kon tijdelijk niet worden bereikt. Probeer het opnieuw.'
       },
       { status: 502 }
