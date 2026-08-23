@@ -8,41 +8,74 @@ function normalizePlate(value = '') {
 }
 
 function formatDate(value) {
-  if (!value || value.length !== 8) return null
-  return `${value.slice(6, 8)}-${value.slice(4, 6)}-${value.slice(0, 4)}`
+  if (!value) return null
+
+  const str = String(value)
+
+  if (str.length !== 8) return null
+
+  return `${str.slice(6, 8)}-${str.slice(4, 6)}-${str.slice(0, 4)}`
 }
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url)
-  const kenteken = normalizePlate(searchParams.get('kenteken'))
-
-  if (!kenteken || kenteken.length < 6) {
-    return NextResponse.json({ error: 'Ongeldig kenteken.' }, { status: 400 })
-  }
-
   try {
+    const kentekenRaw = request.nextUrl.searchParams.get('kenteken')
+    const kenteken = normalizePlate(kentekenRaw || '')
+
+    if (!kenteken || kenteken.length < 6) {
+      return NextResponse.json(
+        { error: 'Ongeldig kenteken.' },
+        { status: 400 }
+      )
+    }
+
+    const vehicleUrl =
+      `${VEHICLE_ENDPOINT}?kenteken=${encodeURIComponent(kenteken)}&%24limit=1`
+
+    const fuelUrl =
+      `${FUEL_ENDPOINT}?kenteken=${encodeURIComponent(kenteken)}&%24limit=10`
+
     const [vehicleResponse, fuelResponse] = await Promise.all([
-      fetch(`${VEHICLE_ENDPOINT}?kenteken=${encodeURIComponent(kenteken)}&$limit=1`, {
-        next: { revalidate: 3600 }
+      fetch(vehicleUrl, {
+        cache: 'no-store'
       }),
-      fetch(`${FUEL_ENDPOINT}?kenteken=${encodeURIComponent(kenteken)}&$limit=10`, {
-        next: { revalidate: 3600 }
+      fetch(fuelUrl, {
+        cache: 'no-store'
       })
     ])
 
     if (!vehicleResponse.ok) {
-      throw new Error(`RDW voertuigservice gaf status ${vehicleResponse.status}`)
+      return NextResponse.json(
+        {
+          error: `RDW voertuigservice gaf status ${vehicleResponse.status}`
+        },
+        { status: 502 }
+      )
     }
 
     const vehicles = await vehicleResponse.json()
-    const fuels = fuelResponse.ok ? await fuelResponse.json() : []
 
-    if (!vehicles.length) {
-      return NextResponse.json({ error: 'Kenteken niet gevonden bij RDW.' }, { status: 404 })
+    let fuels = []
+
+    if (fuelResponse.ok) {
+      fuels = await fuelResponse.json()
+    }
+
+    if (!Array.isArray(vehicles) || vehicles.length === 0) {
+      return NextResponse.json(
+        { error: 'Kenteken niet gevonden bij RDW.' },
+        { status: 404 }
+      )
     }
 
     const v = vehicles[0]
-    const brandstof = fuels.map((f) => f.brandstof_omschrijving).filter(Boolean).join(' / ')
+
+    const brandstof = Array.isArray(fuels)
+      ? fuels
+          .map((f) => f.brandstof_omschrijving)
+          .filter(Boolean)
+          .join(' / ')
+      : ''
 
     return NextResponse.json({
       kenteken,
@@ -51,17 +84,25 @@ export async function GET(request) {
       voertuigsoort: v.voertuigsoort || null,
       inrichting: v.inrichting || null,
       datumEersteToelating: formatDate(v.datum_eerste_toelating),
-      cilinderinhoud: v.cilinderinhoud ? Number(v.cilinderinhoud) : null,
-      aantalCilinders: v.aantal_cilinders ? Number(v.aantal_cilinders) : null,
+      cilinderinhoud: v.cilinderinhoud
+        ? Number(v.cilinderinhoud)
+        : null,
+      aantalCilinders: v.aantal_cilinders
+        ? Number(v.aantal_cilinders)
+        : null,
       variant: v.variant || null,
       uitvoering: v.uitvoering || null,
       typegoedkeuringsnummer: v.typegoedkeuringsnummer || null,
       brandstof: brandstof || null
     })
+
   } catch (error) {
     console.error('RDW lookup failed:', error)
+
     return NextResponse.json(
-      { error: 'RDW kon tijdelijk niet worden bereikt. Probeer het opnieuw.' },
+      {
+        error: 'RDW kon tijdelijk niet worden bereikt. Probeer het opnieuw.'
+      },
       { status: 502 }
     )
   }
