@@ -28,20 +28,26 @@ export const oilMatches = [
         '5W-40'
       ],
 
-      shell: {
-        product: 'Nog te koppelen',
-        status: 'pending'
-      },
+shell: {
+  product: 'Shell Helix Ultra Professional AV-L 5W-30',
+  viscositeit: '5W-30',
+  specificatie: 'VW 504 00 / 507 00',
+  status: 'matched'
+},
 
-      ok: {
-        product: 'Nog te koppelen',
-        status: 'pending'
-      },
+ok: {
+  product: 'Nog te koppelen',
+  viscositeit: null,
+  specificatie: null,
+  status: 'pending'
+},
 
-      mpm: {
-        product: 'Nog te koppelen',
-        status: 'pending'
-      }
+mpm: {
+  product: 'MPM Motor Oil 5W-30 Premium Synthetic ESP-X',
+  viscositeit: '5W-30',
+  specificatie: 'VW 504 00 / 507 00',
+  status: 'matched'
+}      }
     }
   }
 ]
