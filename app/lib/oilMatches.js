@@ -156,6 +156,74 @@ export const oilMatches = [
 
         status:
           'matched'
+
+{
+  id: 'renault-trafic-20dci-84kw-m9r',
+
+  vehicle: {
+    merk: 'RENAULT',
+    modelContains: 'TRAFIC',
+    brandstofContains: 'DIESEL',
+
+    yearFrom: 2006,
+    yearTo: 2014,
+
+    cilinderinhoud: 1995,
+    cilinderinhoudTolerance: 10,
+
+    vermogenKw: 84,
+    vermogenTolerance: 2
+  },
+
+  engine: {
+    naam: '2.0 dCi',
+    motorcode: 'M9R',
+    vermogenKw: 84,
+    vermogenPk: 114
+  },
+
+  oil: {
+    viscositeit: null,
+    oemSpecificatie: null,
+
+    requiresDpfCheck: true,
+
+    variants: {
+      withDpf: {
+        viscositeit: '5W-30',
+        oemSpecificatie: 'Renault RN0720',
+        acea: 'ACEA C4'
+      },
+
+      withoutDpf: {
+        viscositeit: '5W-40',
+        oemSpecificatie: 'Renault RN0710',
+        acea: 'ACEA A3/B4'
+      }
+    },
+
+    shell: {
+      product: 'Nog te bepalen na DPF-controle',
+      viscositeit: null,
+      specificatie: null,
+      status: 'pending'
+    },
+
+    ok: {
+      product: 'Nog te bepalen na DPF-controle',
+      viscositeit: null,
+      specificatie: null,
+      status: 'pending'
+    },
+
+    mpm: {
+      product: 'Nog te bepalen na DPF-controle',
+      viscositeit: null,
+      specificatie: null,
+      status: 'pending'
+    }
+  }
+},        
       }
     }
   }
