@@ -12,21 +12,28 @@ function includesText(value, wanted) {
   )
 }
 
+function includesAnyText(value, wantedValues = []) {
+  if (!Array.isArray(wantedValues)) {
+    return false
+  }
+
+  return wantedValues.some((wanted) =>
+    includesText(value, wanted)
+  )
+}
+
 function getVehicleYear(vehicle) {
-  const date =
-    vehicle?.datumEersteToelating
+  const date = vehicle?.datumEersteToelating
 
   if (!date) return null
 
-  const parts =
-    String(date).split('-')
+  const parts = String(date).split('-')
 
   if (parts.length !== 3) {
     return null
   }
 
-  const year =
-    Number(parts[2])
+  const year = Number(parts[2])
 
   return Number.isFinite(year)
     ? year
@@ -48,31 +55,21 @@ function numberWithinTolerance(
     return false
   }
 
-  return (
-    Math.abs(a - e) <= tolerance
-  )
+  return Math.abs(a - e) <= tolerance
 }
 
 /*
-  Probeert ALLEEN expliciete DPF /
-  roetfilterinformatie te herkennen.
-
-  We gokken niet op basis van bouwjaar,
-  dieseltype of emissieklasse.
+  ============================================
+  DPF / ROETFILTER
+  ============================================
 */
 
 function parseDpfValue(value) {
-  if (
-    value === true ||
-    value === 1
-  ) {
+  if (value === true || value === 1) {
     return true
   }
 
-  if (
-    value === false ||
-    value === 0
-  ) {
+  if (value === false || value === 0) {
     return false
   }
 
@@ -84,8 +81,16 @@ function parseDpfValue(value) {
     return null
   }
 
-  const text =
-    normalize(value)
+  const text = normalize(value)
+
+  const negativeValues = [
+    'NEE',
+    'NO',
+    'FALSE',
+    'NIET AANWEZIG',
+    'ZONDER ROETFILTER',
+    'ZONDER DPF'
+  ]
 
   const positiveValues = [
     'JA',
@@ -96,15 +101,6 @@ function parseDpfValue(value) {
     'MET DPF',
     'DPF',
     'ROETFILTER'
-  ]
-
-  const negativeValues = [
-    'NEE',
-    'NO',
-    'FALSE',
-    'NIET AANWEZIG',
-    'ZONDER ROETFILTER',
-    'ZONDER DPF'
   ]
 
   if (
@@ -130,18 +126,10 @@ function parseDpfValue(value) {
   return null
 }
 
-export function detectDpfStatus(
-  vehicle
-) {
+export function detectDpfStatus(vehicle) {
   if (!vehicle) {
     return null
   }
-
-  /*
-    We ondersteunen meerdere mogelijke
-    veldnamen zodat de RDW-route later
-    eenvoudig uitgebreid kan worden.
-  */
 
   const possibleFields = [
     vehicle.dpf,
@@ -153,11 +141,8 @@ export function detectDpfStatus(
     vehicle.diesel_particulate_filter
   ]
 
-  for (
-    const value of possibleFields
-  ) {
-    const result =
-      parseDpfValue(value)
+  for (const value of possibleFields) {
+    const result = parseDpfValue(value)
 
     if (result !== null) {
       return result
@@ -168,306 +153,276 @@ export function detectDpfStatus(
 }
 
 /*
-  ==================================================
+  ============================================
   MOTOR- EN OLIEDATABASE
-  ==================================================
+  ============================================
 
-  Nieuwe motoren kunnen later gewoon als
-  extra object aan deze array worden toegevoegd.
+  Vanaf nu voegen we nieuwe motoren alleen
+  hier toe.
 
-  De matching onderaan hoeft daarvoor niet
-  opnieuw geprogrammeerd te worden.
+  De code onder deze database hoeft niet
+  opnieuw aangepast te worden.
 */
 
 export const oilMatches = [
 
   /*
-    ==================================================
+    ============================================
     AUDI A4
     1.8 TFSI
+    CDHA
     1798 cc
     88 kW / 120 pk
-    CDHA
-    ==================================================
+    ============================================
   */
 
   {
-    id:
-      'audi-a4-18tfsi-cdha-88kw',
+    id: 'audi-a4-18tfsi-cdha-88kw',
 
     vehicle: {
-      merk:
-        'AUDI',
+      merk: 'AUDI',
 
-      modelContains:
-        'A4',
+      modelContainsAny: [
+        'A4'
+      ],
 
-      brandstofContains:
-        'BENZINE',
+      brandstofContains: 'BENZINE',
 
-      yearFrom:
-        2008,
+      yearFrom: 2008,
+      yearTo: 2015,
 
-      yearTo:
-        2015,
+      cilinderinhoud: 1798,
+      cilinderinhoudTolerance: 10,
 
-      cilinderinhoud:
-        1798,
-
-      cilinderinhoudTolerance:
-        10,
-
-      vermogenKw:
-        88,
-
-      vermogenTolerance:
-        2
+      vermogenKw: 88,
+      vermogenTolerance: 2
     },
 
     engine: {
-      naam:
-        '1.8 TFSI',
+      naam: '1.8 TFSI',
+      motorcode: 'CDHA',
 
-      motorcode:
-        'CDHA',
-
-      vermogenKw:
-        88,
-
-      vermogenPk:
-        120
+      vermogenKw: 88,
+      vermogenPk: 120
     },
 
     oil: {
-      viscositeit:
-        '5W-30',
+      viscositeit: '5W-30',
 
-      oemSpecificatie:
-        'VW 502 00',
+      alternatieveViscositeiten: [
+        '5W-40'
+      ],
 
-      requiresDpfCheck:
-        false,
+      oemSpecificatie: 'VW 502 00',
 
-      dpfStatus:
-        'not-required',
+      inhoudMetFilter: null,
+
+      requiresDpfCheck: false,
 
       shell: {
         product:
           'Shell Helix Ultra 5W-30',
 
-        viscositeit:
-          '5W-30',
+        viscositeit: '5W-30',
 
         specificatie:
           'VW 502 00 / VW 505 00',
 
-        status:
-          'matched'
+        status: 'matched'
       },
 
       ok: {
         product:
           'Nog niet bevestigd',
 
-        viscositeit:
-          null,
+        viscositeit: null,
 
         specificatie:
           'VW 502 00',
 
-        status:
-          'pending'
+        status: 'pending'
       },
 
       mpm: {
         product:
           'MPM Motor Oil 5W-30 Premium Synthetic BMW / MB',
 
-        viscositeit:
-          '5W-30',
+        viscositeit: '5W-30',
 
         specificatie:
           'VW 502 00 / VW 505 00',
 
-        status:
-          'matched'
+        status: 'matched'
       }
     }
   },
 
   /*
-    ==================================================
+    ============================================
     RENAULT TRAFIC
     2.0 dCi
+    M9R
     1995 cc
     84 kW / 114 pk
-    M9R
-    ==================================================
-
-    Voor deze motor gebruiken we twee
-    varianten.
-
-    MET DPF:
-    5W-30
-    Renault RN0720
-    ACEA C4
-
-    ZONDER DPF:
-    5W-40
-    Renault RN0710
-    ACEA A3/B4
-
-    Als de DPF-status onbekend is,
-    wordt GEEN definitieve olie gekozen.
+    ============================================
   */
 
   {
-    id:
-      'renault-trafic-20dci-m9r-84kw',
+    id: 'renault-trafic-20dci-m9r-84kw',
 
     vehicle: {
-      merk:
-        'RENAULT',
+      merk: 'RENAULT',
 
-      modelContains:
-        'TRAFIC',
+      modelContainsAny: [
+        'TRAFIC'
+      ],
 
-      brandstofContains:
-        'DIESEL',
+      brandstofContains: 'DIESEL',
 
-      yearFrom:
-        2006,
+      yearFrom: 2006,
+      yearTo: 2014,
 
-      yearTo:
-        2014,
+      cilinderinhoud: 1995,
+      cilinderinhoudTolerance: 10,
 
-      cilinderinhoud:
-        1995,
-
-      cilinderinhoudTolerance:
-        10,
-
-      vermogenKw:
-        84,
-
-      vermogenTolerance:
-        2
+      vermogenKw: 84,
+      vermogenTolerance: 2
     },
 
     engine: {
-      naam:
-        '2.0 dCi',
+      naam: '2.0 dCi',
+      motorcode: 'M9R',
 
-      motorcode:
-        'M9R',
-
-      vermogenKw:
-        84,
-
-      vermogenPk:
-        114
+      vermogenKw: 84,
+      vermogenPk: 114
     },
 
     oil: {
-      viscositeit:
-        null,
+      viscositeit: null,
+      oemSpecificatie: null,
+      acea: null,
 
-      oemSpecificatie:
-        null,
+      inhoudMetFilter: null,
 
-      acea:
-        null,
-
-      requiresDpfCheck:
-        true,
-
-      dpfStatus:
-        'unknown',
+      requiresDpfCheck: true,
 
       variants: {
         withDpf: {
-          viscositeit:
-            '5W-30',
+          viscositeit: '5W-30',
 
           oemSpecificatie:
             'Renault RN0720',
 
-          acea:
-            'ACEA C4'
+          acea: 'ACEA C4'
         },
 
         withoutDpf: {
-          viscositeit:
-            '5W-40',
+          viscositeit: '5W-40',
 
           oemSpecificatie:
             'Renault RN0710',
 
-          acea:
-            'ACEA A3/B4'
+          acea: 'ACEA A3/B4'
         }
-      },
-
-      shell: {
-        product:
-          'Wacht op DPF-controle',
-
-        viscositeit:
-          null,
-
-        specificatie:
-          null,
-
-        status:
-          'pending'
-      },
-
-      ok: {
-        product:
-          'Wacht op DPF-controle',
-
-        viscositeit:
-          null,
-
-        specificatie:
-          null,
-
-        status:
-          'pending'
-      },
-
-      mpm: {
-        product:
-          'Wacht op DPF-controle',
-
-        viscositeit:
-          null,
-
-        specificatie:
-          null,
-
-        status:
-          'pending'
       }
+    }
+  },
+
+  /*
+    ============================================
+    OPEL KARL / VIVA
+    1.0
+    B10XE
+    999 cc
+    55 kW / 75 pk
+    ============================================
+
+    Opel handleiding:
+    Europees onderhoud:
+    dexos2
+
+    Viscositeit bij temperaturen tot -25°C:
+    5W-30 of 5W-40
+
+    Olie-inhoud inclusief filter:
+    4,0 liter
+  */
+
+  {
+    id: 'opel-karl-viva-10-b10xe-55kw',
+
+    vehicle: {
+      merk: 'OPEL',
+
+      modelContainsAny: [
+        'KARL',
+        'VIVA'
+      ],
+
+      brandstofContains: 'BENZINE',
+
+      yearFrom: 2015,
+      yearTo: 2019,
+
+      cilinderinhoud: 999,
+      cilinderinhoudTolerance: 10,
+
+      vermogenKw: 55,
+      vermogenTolerance: 2
+    },
+
+    engine: {
+      naam: '1.0',
+      motorcode: 'B10XE',
+
+      vermogenKw: 55,
+      vermogenPk: 75
+    },
+
+    oil: {
+      /*
+        Zowel 5W-30 als 5W-40 is volgens
+        Opel toegestaan bij temperaturen
+        tot -25°C.
+
+        We gebruiken 5W-30 als primaire
+        productzoekwaarde.
+      */
+
+      viscositeit: '5W-30',
+
+      alternatieveViscositeiten: [
+        '5W-40'
+      ],
+
+      oemSpecificatie:
+        'GM DEXOS2',
+
+      acea:
+        'ACEA C3',
+
+      inhoudMetFilter:
+        4.0,
+
+      requiresDpfCheck:
+        false
     }
   }
 ]
 
 /*
-  ==================================================
+  ============================================
   MATCH SCORE
-  ==================================================
+  ============================================
 */
 
 function calculateMatchScore(
   vehicle,
   item
 ) {
-  const rules =
-    item.vehicle
+  const rules = item.vehicle
 
   let score = 0
-
   const reasons = []
 
   /*
@@ -483,16 +438,46 @@ function calculateMatchScore(
     }
 
     score += 30
-
     reasons.push('merk')
   }
 
   /*
     MODEL
+
+    Ondersteunt nu meerdere benamingen,
+    bijvoorbeeld:
+
+    KARL
+    VIVA
   */
 
   if (
-    rules.modelContains
+    Array.isArray(
+      rules.modelContainsAny
+    ) &&
+    rules.modelContainsAny.length > 0
+  ) {
+    if (
+      !includesAnyText(
+        vehicle.handelsbenaming,
+        rules.modelContainsAny
+      )
+    ) {
+      return null
+    }
+
+    score += 30
+    reasons.push('model')
+  }
+
+  /*
+    Oude modelContains blijft ook werken
+    voor toekomstige backwards compatibility.
+  */
+
+  if (
+    rules.modelContains &&
+    !rules.modelContainsAny
   ) {
     if (
       !includesText(
@@ -504,7 +489,6 @@ function calculateMatchScore(
     }
 
     score += 30
-
     reasons.push('model')
   }
 
@@ -525,7 +509,6 @@ function calculateMatchScore(
     }
 
     score += 20
-
     reasons.push('brandstof')
   }
 
@@ -559,7 +542,6 @@ function calculateMatchScore(
     }
 
     score += 20
-
     reasons.push('bouwjaar')
   }
 
@@ -571,8 +553,7 @@ function calculateMatchScore(
     rules.cilinderinhoud
   ) {
     const tolerance =
-      rules
-        .cilinderinhoudTolerance ??
+      rules.cilinderinhoudTolerance ??
       20
 
     if (
@@ -600,8 +581,7 @@ function calculateMatchScore(
     rules.vermogenKw
   ) {
     const tolerance =
-      rules
-        .vermogenTolerance ??
+      rules.vermogenTolerance ??
       3
 
     if (
@@ -615,10 +595,7 @@ function calculateMatchScore(
     }
 
     score += 50
-
-    reasons.push(
-      'vermogen'
-    )
+    reasons.push('vermogen')
   }
 
   return {
@@ -628,24 +605,18 @@ function calculateMatchScore(
 }
 
 /*
-  ==================================================
-  DPF-AFHANKELIJKE OLIE OPLOSSEN
-  ==================================================
+  ============================================
+  DPF VARIANT OPLOSSEN
+  ============================================
 */
 
 function resolveOilVariant(
   item,
   vehicle
 ) {
-  if (
-    !item?.oil
-  ) {
+  if (!item?.oil) {
     return item
   }
-
-  /*
-    Geen DPF-afhankelijke motor.
-  */
 
   if (
     !item.oil.requiresDpfCheck
@@ -657,11 +628,8 @@ function resolveOilVariant(
     detectDpfStatus(vehicle)
 
   /*
-    DPF-status onbekend.
-
-    We laten de motorherkenning staan,
-    maar kiezen bewust nog geen
-    viscositeit of OEM-specificatie.
+    DPF onbekend:
+    nog geen definitieve olie kiezen.
   */
 
   if (dpf === null) {
@@ -671,17 +639,11 @@ function resolveOilVariant(
       oil: {
         ...item.oil,
 
-        viscositeit:
-          null,
+        viscositeit: null,
+        oemSpecificatie: null,
+        acea: null,
 
-        oemSpecificatie:
-          null,
-
-        acea:
-          null,
-
-        dpfStatus:
-          'unknown'
+        dpfStatus: 'unknown'
       }
     }
   }
@@ -750,9 +712,9 @@ function resolveOilVariant(
 }
 
 /*
-  ==================================================
+  ============================================
   HOOFDFUNCTIE
-  ==================================================
+  ============================================
 */
 
 export function findOilMatch(
@@ -803,10 +765,7 @@ export function findOilMatch(
   /*
     Veiligheidsgrens.
 
-    Alleen merk + model is niet genoeg.
-
-    De huidige Audi en Renault scoren
-    onder andere op:
+    Een combinatie van bijvoorbeeld:
 
     merk
     model
@@ -814,11 +773,13 @@ export function findOilMatch(
     bouwjaar
     cilinderinhoud
     vermogen
+
+    geeft een hoge score.
+
+    Alleen merk + model is onvoldoende.
   */
 
-  if (
-    best.score < 120
-  ) {
+  if (best.score < 120) {
     return null
   }
 
