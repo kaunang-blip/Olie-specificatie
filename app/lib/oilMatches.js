@@ -18,12 +18,6 @@ function getVehicleYear(vehicle) {
 
   if (!date) return null
 
-  /*
-    RDW geeft bij ons bijvoorbeeld:
-
-    28-05-2011
-  */
-
   const parts =
     String(date).split('-')
 
@@ -62,14 +56,21 @@ function numberWithinTolerance(
 /*
   MOTOR- EN OLIEDATABASE
 
-  Elke nieuwe motor komt als één object
-  in deze lijst.
+  Nieuwe motoren kunnen later gewoon als
+  extra object aan deze lijst worden toegevoegd.
 
-  De match-logica zelf hoeft daarna niet
-  meer aangepast te worden.
+  De match-logica onderaan hoeft daarvoor
+  niet opnieuw aangepast te worden.
 */
 
 export const oilMatches = [
+  /*
+    AUDI A4
+    1.8 TFSI
+    88 kW / 120 pk
+    CDHA
+  */
+
   {
     id: 'audi-a4-18tfsi-cdha-88kw',
 
@@ -95,8 +96,11 @@ export const oilMatches = [
 
     engine: {
       naam: '1.8 TFSI',
+
       motorcode: 'CDHA',
+
       vermogenKw: 88,
+
       vermogenPk: 120
     },
 
@@ -106,15 +110,7 @@ export const oilMatches = [
       oemSpecificatie:
         'VW 502 00',
 
-      /*
-        Deze productvelden blijven voorlopig
-        bestaan als fallback.
-
-        De nieuwe oilProducts.js kan vervolgens
-        zelf producten zoeken op:
-
-        viscositeit + OEM-specificatie.
-      */
+      requiresDpfCheck: false,
 
       shell: {
         product:
@@ -156,74 +152,127 @@ export const oilMatches = [
 
         status:
           'matched'
-
-{
-  id: 'renault-trafic-20dci-84kw-m9r',
-
-  vehicle: {
-    merk: 'RENAULT',
-    modelContains: 'TRAFIC',
-    brandstofContains: 'DIESEL',
-
-    yearFrom: 2006,
-    yearTo: 2014,
-
-    cilinderinhoud: 1995,
-    cilinderinhoudTolerance: 10,
-
-    vermogenKw: 84,
-    vermogenTolerance: 2
+      }
+    }
   },
 
-  engine: {
-    naam: '2.0 dCi',
-    motorcode: 'M9R',
-    vermogenKw: 84,
-    vermogenPk: 114
-  },
+  /*
+    RENAULT TRAFIC
+    2.0 dCi
+    84 kW / 114 pk
+    M9R
 
-  oil: {
-    viscositeit: null,
-    oemSpecificatie: null,
+    Bij deze motor hangt de uiteindelijke
+    oliespecificatie af van aanwezigheid
+    van een roetfilter / DPF.
 
-    requiresDpfCheck: true,
+    Daarom geven we nog niet blind één olie.
+  */
 
-    variants: {
-      withDpf: {
-        viscositeit: '5W-30',
-        oemSpecificatie: 'Renault RN0720',
-        acea: 'ACEA C4'
+  {
+    id: 'renault-trafic-20dci-m9r-84kw',
+
+    vehicle: {
+      merk: 'RENAULT',
+
+      modelContains: 'TRAFIC',
+
+      brandstofContains:
+        'DIESEL',
+
+      yearFrom: 2006,
+      yearTo: 2014,
+
+      cilinderinhoud: 1995,
+
+      cilinderinhoudTolerance: 10,
+
+      vermogenKw: 84,
+
+      vermogenTolerance: 2
+    },
+
+    engine: {
+      naam: '2.0 dCi',
+
+      motorcode: 'M9R',
+
+      vermogenKw: 84,
+
+      vermogenPk: 114
+    },
+
+    oil: {
+      viscositeit: null,
+
+      oemSpecificatie: null,
+
+      requiresDpfCheck: true,
+
+      variants: {
+        withDpf: {
+          viscositeit:
+            '5W-30',
+
+          oemSpecificatie:
+            'Renault RN0720',
+
+          acea:
+            'ACEA C4'
+        },
+
+        withoutDpf: {
+          viscositeit:
+            '5W-40',
+
+          oemSpecificatie:
+            'Renault RN0710',
+
+          acea:
+            'ACEA A3/B4'
+        }
       },
 
-      withoutDpf: {
-        viscositeit: '5W-40',
-        oemSpecificatie: 'Renault RN0710',
-        acea: 'ACEA A3/B4'
-      }
-    },
+      shell: {
+        product:
+          'Nog te bepalen na DPF-controle',
 
-    shell: {
-      product: 'Nog te bepalen na DPF-controle',
-      viscositeit: null,
-      specificatie: null,
-      status: 'pending'
-    },
+        viscositeit:
+          null,
 
-    ok: {
-      product: 'Nog te bepalen na DPF-controle',
-      viscositeit: null,
-      specificatie: null,
-      status: 'pending'
-    },
+        specificatie:
+          null,
 
-    mpm: {
-      product: 'Nog te bepalen na DPF-controle',
-      viscositeit: null,
-      specificatie: null,
-      status: 'pending'
-    }
-  }
-},        
+        status:
+          'pending'
+      },
+
+      ok: {
+        product:
+          'Nog te bepalen na DPF-controle',
+
+        viscositeit:
+          null,
+
+        specificatie:
+          null,
+
+        status:
+          'pending'
+      },
+
+      mpm: {
+        product:
+          'Nog te bepalen na DPF-controle',
+
+        viscositeit:
+          null,
+
+        specificatie:
+          null,
+
+        status:
+          'pending'
       }
     }
   }
@@ -237,6 +286,7 @@ function calculateMatchScore(
     item.vehicle
 
   let score = 0
+
   const reasons = []
 
   /*
@@ -252,6 +302,7 @@ function calculateMatchScore(
     }
 
     score += 30
+
     reasons.push('merk')
   }
 
@@ -270,6 +321,7 @@ function calculateMatchScore(
     }
 
     score += 30
+
     reasons.push('model')
   }
 
@@ -290,6 +342,7 @@ function calculateMatchScore(
     }
 
     score += 20
+
     reasons.push('brandstof')
   }
 
@@ -323,6 +376,7 @@ function calculateMatchScore(
     }
 
     score += 20
+
     reasons.push('bouwjaar')
   }
 
@@ -348,6 +402,7 @@ function calculateMatchScore(
     }
 
     score += 40
+
     reasons.push(
       'cilinderinhoud'
     )
@@ -373,6 +428,7 @@ function calculateMatchScore(
     }
 
     score += 50
+
     reasons.push('vermogen')
   }
 
@@ -404,6 +460,7 @@ export function findOilMatch(
 
         return {
           item,
+
           score:
             result.score,
 
@@ -429,11 +486,12 @@ export function findOilMatch(
   /*
     Veiligheidsgrens.
 
-    We willen niet alleen op merk +
-    model een olieadvies geven.
+    We willen niet op alleen merk + model
+    zomaar olie adviseren.
 
-    Een goede match moet voldoende
-    kenmerken hebben geraakt.
+    Met merk + model + brandstof +
+    bouwjaar + cilinderinhoud + vermogen
+    komen we ruim boven deze grens.
   */
 
   if (best.score < 120) {
