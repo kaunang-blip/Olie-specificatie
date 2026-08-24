@@ -41,228 +41,6 @@ function getVehicles(data) {
   return []
 }
 
-function getNumberList(value) {
-  if (!value) return []
-
-  const matches = String(value).match(/\d+(?:[.,]\d+)?/g)
-
-  if (!matches) return []
-
-  return matches
-    .map((item) =>
-      Number(item.replace(',', '.'))
-    )
-    .filter(Number.isFinite)
-}
-
-function scoreVehicle(vehicle, wanted) {
-  let score = 0
-  const reasons = []
-
-  const make =
-    clean(vehicle?.make).toLowerCase()
-
-  const model =
-    clean(vehicle?.model).toLowerCase()
-
-  const trim =
-    clean(vehicle?.trim).toLowerCase()
-
-  const engine =
-    clean(vehicle?.engine).toLowerCase()
-
-  const wantedMake =
-    clean(wanted.make).toLowerCase()
-
-  const wantedModel =
-    clean(wanted.model).toLowerCase()
-
-  if (make === wantedMake) {
-    score += 40
-    reasons.push('merk')
-  }
-
-  if (model === wantedModel) {
-    score += 40
-    reasons.push('model exact')
-  } else if (
-    model.includes(wantedModel) ||
-    wantedModel.includes(model)
-  ) {
-    score += 25
-    reasons.push('model gedeeltelijk')
-  }
-
-  if (
-    Number(vehicle?.year) ===
-    Number(wanted.year)
-  ) {
-    score += 20
-    reasons.push('bouwjaar')
-  }
-
-  const combined =
-    `${engine} ${trim}`.trim()
-
-  const numbers =
-    getNumberList(combined)
-
-  if (
-    Number.isFinite(wanted.cilinderinhoud) &&
-    wanted.cilinderinhoud > 0
-  ) {
-    const liters =
-      wanted.cilinderinhoud / 1000
-
-    const found =
-      numbers.some((number) => {
-        return (
-          Math.abs(number - liters) < 0.08 ||
-          Math.abs(
-            number -
-              wanted.cilinderinhoud
-          ) < 40
-        )
-      })
-
-    if (found) {
-      score += 30
-      reasons.push('cilinderinhoud')
-    }
-  }
-
-  if (
-    Number.isFinite(wanted.vermogenKw) &&
-    wanted.vermogenKw > 0
-  ) {
-    const pk =
-      Math.round(
-        wanted.vermogenKw * 1.35962
-      )
-
-    const found =
-      numbers.some((number) => {
-        return (
-          Math.abs(
-            number -
-              wanted.vermogenKw
-          ) <= 3 ||
-          Math.abs(
-            number - pk
-          ) <= 4
-        )
-      })
-
-    if (found) {
-      score += 30
-      reasons.push('vermogen')
-    }
-  }
-
-  if (engine || trim) {
-    score += 10
-    reasons.push('motorinfo')
-  }
-
-  return {
-    score,
-    reasons
-  }
-}
-
-async function searchVehicles({
-  apiKey,
-  year,
-  make,
-  model
-}) {
-  const attempts = [
-    {
-      name: 'year-make-model',
-      url:
-        `${API_BASE}/vehicles` +
-        `?year=${encodeURIComponent(year)}` +
-        `&make=${encodeURIComponent(make)}` +
-        `&model=${encodeURIComponent(model)}`
-    },
-
-    {
-      name: 'make-model',
-      url:
-        `${API_BASE}/vehicles` +
-        `?make=${encodeURIComponent(make)}` +
-        `&model=${encodeURIComponent(model)}`
-    },
-
-    {
-      name: 'year-make',
-      url:
-        `${API_BASE}/vehicles` +
-        `?year=${encodeURIComponent(year)}` +
-        `&make=${encodeURIComponent(make)}`
-    },
-
-    {
-      name: 'make',
-      url:
-        `${API_BASE}/vehicles` +
-        `?make=${encodeURIComponent(make)}`
-    }
-  ]
-
-  const allVehicles = []
-  const attemptResults = []
-
-  for (const attempt of attempts) {
-    const result =
-      await vfFetch(
-        attempt.url,
-        apiKey
-      )
-
-    const vehicles =
-      result.ok
-        ? getVehicles(result.data)
-        : []
-
-    attemptResults.push({
-      attempt: attempt.name,
-      status: result.status,
-      count: vehicles.length
-    })
-
-    for (const vehicle of vehicles) {
-      if (
-        vehicle?.id &&
-        !allVehicles.some(
-          (item) =>
-            String(item.id) ===
-            String(vehicle.id)
-        )
-      ) {
-        allVehicles.push(vehicle)
-      }
-    }
-
-    /*
-      Als de exacte zoekactie al bruikbare
-      resultaten geeft, hoeven we niet altijd
-      alle bredere zoekacties te gebruiken.
-    */
-    if (
-      attempt.name === 'year-make-model' &&
-      vehicles.length > 1
-    ) {
-      break
-    }
-  }
-
-  return {
-    vehicles: allVehicles,
-    attempts: attemptResults
-  }
-}
-
 export async function GET(request) {
   try {
     const apiKey =
@@ -279,36 +57,28 @@ export async function GET(request) {
     }
 
     const year = clean(
-      request.nextUrl.searchParams.get(
-        'year'
-      )
+      request.nextUrl.searchParams.get('year')
     )
 
     const make = clean(
-      request.nextUrl.searchParams.get(
-        'make'
-      )
+      request.nextUrl.searchParams.get('make')
     )
 
     const model = clean(
+      request.nextUrl.searchParams.get('model')
+    )
+
+    const cilinderinhoud = clean(
       request.nextUrl.searchParams.get(
-        'model'
+        'cilinderinhoud'
       )
     )
 
-    const cilinderinhoud =
-      Number(
-        request.nextUrl.searchParams.get(
-          'cilinderinhoud'
-        )
+    const vermogenKw = clean(
+      request.nextUrl.searchParams.get(
+        'vermogenKw'
       )
-
-    const vermogenKw =
-      Number(
-        request.nextUrl.searchParams.get(
-          'vermogenKw'
-        )
-      )
+    )
 
     if (!year || !make || !model) {
       return NextResponse.json(
@@ -320,110 +90,135 @@ export async function GET(request) {
       )
     }
 
-    const searchResult =
-      await searchVehicles({
-        apiKey,
-        year,
-        make,
-        model
+    /*
+      Vehicle Finder ondersteunt de exacte
+      combinatie:
+
+      year + make + model
+
+      De bredere zoekopdrachten gaven 422,
+      dus die gebruiken we niet meer.
+    */
+
+    const vehicleUrl =
+      `${API_BASE}/vehicles` +
+      `?year=${encodeURIComponent(year)}` +
+      `&make=${encodeURIComponent(make)}` +
+      `&model=${encodeURIComponent(model)}`
+
+    const vehicleResult =
+      await vfFetch(
+        vehicleUrl,
+        apiKey
+      )
+
+    /*
+      Geen Vehicle Finder-resultaat.
+
+      Dit is géén harde fout meer.
+
+      De frontend kan dan doorgaan met
+      de lokale RDW/motordatabase.
+    */
+
+    if (!vehicleResult.ok) {
+      return NextResponse.json({
+        vehicle: null,
+        oil: null,
+
+        fallbackRequired: true,
+
+        reason:
+          'vehicle-finder-no-match',
+
+        message:
+          'Geen Vehicle Finder-match gevonden. Lokale motormatching kan worden gebruikt.',
+
+        rdw: {
+          year,
+          make,
+          model,
+          cilinderinhoud:
+            cilinderinhoud || null,
+          vermogenKw:
+            vermogenKw || null
+        },
+
+        vehicleFinder: {
+          status:
+            vehicleResult.status,
+          details:
+            vehicleResult.data
+        }
       })
+    }
 
     const vehicles =
-      searchResult.vehicles
+      getVehicles(
+        vehicleResult.data
+      )
 
     if (!vehicles.length) {
-      return NextResponse.json(
-        {
-          error:
-            'Vehicle Finder kon geen passend voertuig vinden.',
-          search: {
-            year,
-            make,
-            model
-          },
-          attempts:
-            searchResult.attempts
-        },
-        { status: 404 }
-      )
-    }
+      return NextResponse.json({
+        vehicle: null,
+        oil: null,
 
-    const wanted = {
-      year,
-      make,
-      model,
-      cilinderinhoud:
-        Number.isFinite(
-          cilinderinhoud
-        )
-          ? cilinderinhoud
-          : null,
-      vermogenKw:
-        Number.isFinite(
-          vermogenKw
-        )
-          ? vermogenKw
-          : null
-    }
+        fallbackRequired: true,
 
-    const ranked =
-      vehicles
-        .map((vehicle) => {
-          const result =
-            scoreVehicle(
-              vehicle,
-              wanted
-            )
+        reason:
+          'vehicle-finder-empty',
 
-          return {
-            vehicle,
-            ...result
-          }
-        })
-        .sort(
-          (a, b) =>
-            b.score - a.score
-        )
+        message:
+          'Geen Vehicle Finder-match gevonden. Lokale motormatching kan worden gebruikt.',
 
-    const best =
-      ranked[0]
-
-    if (!best?.vehicle?.id) {
-      return NextResponse.json(
-        {
-          error:
-            'Geen bruikbare vehicle_id gevonden.'
-        },
-        { status: 502 }
-      )
+        rdw: {
+          year,
+          make,
+          model,
+          cilinderinhoud:
+            cilinderinhoud || null,
+          vermogenKw:
+            vermogenKw || null
+        }
+      })
     }
 
     /*
-      Minimaal merk + model moeten overtuigend
-      overeenkomen.
+      Op dit moment geeft Vehicle Finder
+      voor sommige modellen maar één
+      resultaat terug.
+
+      We gebruiken het eerste resultaat
+      alleen voor het opvragen van de
+      beschikbare oliegegevens.
+
+      De RDW/fallback-database blijft
+      verantwoordelijk voor veilige
+      motorherkenning wanneer nodig.
     */
-    if (best.score < 65) {
-      return NextResponse.json(
-        {
-          error:
-            'Vehicle Finder vond voertuigen, maar geen voldoende betrouwbare modelmatch.',
-          bestCandidate:
-            best.vehicle,
-          score:
-            best.score,
-          reasons:
-            best.reasons,
-          attempts:
-            searchResult.attempts
-        },
-        { status: 422 }
-      )
+
+    const vehicle =
+      vehicles[0]
+
+    if (!vehicle?.id) {
+      return NextResponse.json({
+        vehicle: null,
+        oil: null,
+
+        fallbackRequired: true,
+
+        reason:
+          'missing-vehicle-id',
+
+        message:
+          'Vehicle Finder gaf geen bruikbare vehicle_id terug.'
+      })
     }
 
     const oilUrl =
       `${API_BASE}/vehicles/` +
       `${encodeURIComponent(
-        best.vehicle.id
+        vehicle.id
       )}/oil-change`
 
     const oilResult =
@@ -432,77 +227,45 @@ export async function GET(request) {
         apiKey
       )
 
+    /*
+      Voertuig gevonden maar geen olie.
+      Ook dan laten we lokale fallback toe.
+    */
+
     if (!oilResult.ok) {
-      return NextResponse.json(
-        {
-          error:
-            'Voertuig gevonden, maar geen oliegegevens beschikbaar.',
-          vehicle:
-            best.vehicle,
-          score:
-            best.score,
-          reasons:
-            best.reasons,
-          attempts:
-            searchResult.attempts,
+      return NextResponse.json({
+        vehicle,
+
+        oil: null,
+
+        fallbackRequired: true,
+
+        reason:
+          'oil-not-available',
+
+        message:
+          'Voertuig gevonden, maar Vehicle Finder heeft geen oliegegevens.',
+
+        vehicleFinder: {
+          status:
+            oilResult.status,
           details:
             oilResult.data
-        },
-        {
-          status:
-            oilResult.status ||
-            502
         }
-      )
+      })
     }
 
     return NextResponse.json({
-      vehicle:
-        best.vehicle,
+      vehicle,
 
       oil:
         oilResult.data?.data ||
         oilResult.data,
 
-      match: {
-        score:
-          best.score,
+      fallbackRequired: false,
 
-        reasons:
-          best.reasons,
-
-        candidates:
-          ranked
-            .slice(0, 5)
-            .map((item) => ({
-              id:
-                item.vehicle.id,
-
-              year:
-                item.vehicle.year,
-
-              make:
-                item.vehicle.make,
-
-              model:
-                item.vehicle.model,
-
-              trim:
-                item.vehicle.trim,
-
-              engine:
-                item.vehicle.engine,
-
-              score:
-                item.score,
-
-              reasons:
-                item.reasons
-            })),
-
-        attempts:
-          searchResult.attempts
-      }
+      source:
+        'vehicle-finder'
     })
   } catch (error) {
     console.error(
@@ -510,12 +273,23 @@ export async function GET(request) {
       error
     )
 
-    return NextResponse.json(
-      {
-        error:
-          'Vehicle Finder kon niet worden bereikt.'
-      },
-      { status: 502 }
-    )
+    /*
+      Ook een tijdelijke API-fout hoeft
+      de rest van de app niet volledig
+      te blokkeren.
+    */
+
+    return NextResponse.json({
+      vehicle: null,
+      oil: null,
+
+      fallbackRequired: true,
+
+      reason:
+        'vehicle-finder-unreachable',
+
+      message:
+        'Vehicle Finder kon tijdelijk niet worden bereikt.'
+    })
   }
 }
