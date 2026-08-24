@@ -14,9 +14,12 @@ function normalizeViscosity(value = '') {
 }
 
 export const oilProducts = [
-  // -------------------------
-  // SHELL
-  // -------------------------
+
+  /*
+    ============================================
+    SHELL
+    ============================================
+  */
 
   {
     brand: 'Shell',
@@ -30,6 +33,33 @@ export const oilProducts = [
       'MB 226.5',
       'Renault RN0700',
       'Renault RN0710'
+    ]
+  },
+
+  {
+    brand: 'Shell',
+    product: 'Shell Helix Ultra 5W-40',
+    viscosity: '5W-40',
+    specs: [
+      'VW 502 00',
+      'VW 505 00',
+      'BMW LL-01',
+      'MB 229.5',
+      'MB 226.5',
+      'Porsche A40',
+      'Renault RN0700',
+      'Renault RN0710',
+      'PSA B71 2296'
+    ]
+  },
+
+  {
+    brand: 'Shell',
+    product: 'Shell Helix Ultra Professional AR-L 5W-30',
+    viscosity: '5W-30',
+    specs: [
+      'Renault RN0720',
+      'ACEA C4'
     ]
   },
 
@@ -108,9 +138,11 @@ export const oilProducts = [
     ]
   },
 
-  // -------------------------
-  // OK OLIE
-  // -------------------------
+  /*
+    ============================================
+    OK OLIE
+    ============================================
+  */
 
   {
     brand: 'OK Olie',
@@ -142,26 +174,27 @@ export const oilProducts = [
     ]
   },
 
-  // -------------------------
-  // MPM
-  // -------------------------
+  /*
+    Nog geen OK-product toegevoegd voor
+    RN0710 of RN0720 zolang we dat niet
+    betrouwbaar uit officiële OK-data hebben.
+  */
+
+  /*
+    ============================================
+    MPM
+    ============================================
+  */
 
   {
     brand: 'MPM',
-    product: 'MPM Motor Oil 5W-30 Premium Synthetic ESP-X',
+    product: 'MPM Motor Oil 5W-30 Premium Synthetic C4 Renault',
     viscosity: '5W-30',
     specs: [
-      'VW 504 00',
-      'VW 507 00',
-      'BMW LL-04',
-      'MB 229.51',
-      'MB 229.52',
-      'OPEL OV 040 1547 D30',
-      'OPEL OV 040 1547 G30',
-      'Porsche C30',
-      'Renault RN0700',
-      'Renault RN0710',
-      'FIAT 9.55535-S3'
+      'Renault RN0720',
+      'ACEA C4',
+      'MB 226.51',
+      'FIAT 9.55535-S4'
     ]
   },
 
@@ -179,6 +212,25 @@ export const oilProducts = [
       'Porsche A40',
       'Renault RN0700',
       'Renault RN0710'
+    ]
+  },
+
+  {
+    brand: 'MPM',
+    product: 'MPM Motor Oil 5W-30 Premium Synthetic ESP-X',
+    viscosity: '5W-30',
+    specs: [
+      'VW 504 00',
+      'VW 507 00',
+      'BMW LL-04',
+      'MB 229.51',
+      'MB 229.52',
+      'OPEL OV 040 1547 D30',
+      'OPEL OV 040 1547 G30',
+      'Porsche C30',
+      'Renault RN0700',
+      'Renault RN0710',
+      'FIAT 9.55535-S3'
     ]
   },
 
@@ -202,15 +254,19 @@ export function findProductsForOil({
     return []
   }
 
-  const wantedSpec = normalizeSpec(oemSpec)
+  const wantedSpec =
+    normalizeSpec(oemSpec)
+
   const wantedViscosity =
     normalizeViscosity(viscosity)
 
   return oilProducts.filter((item) => {
-    const specMatch = item.specs.some(
-      (spec) =>
-        normalizeSpec(spec) === wantedSpec
-    )
+    const specMatch =
+      item.specs.some(
+        (spec) =>
+          normalizeSpec(spec) ===
+          wantedSpec
+      )
 
     if (!specMatch) {
       return false
@@ -221,7 +277,9 @@ export function findProductsForOil({
     }
 
     return (
-      normalizeViscosity(item.viscosity) ===
+      normalizeViscosity(
+        item.viscosity
+      ) ===
       wantedViscosity
     )
   })
@@ -232,10 +290,11 @@ export function findProductByBrand({
   viscosity,
   brand
 }) {
-  const products = findProductsForOil({
-    oemSpec,
-    viscosity
-  })
+  const products =
+    findProductsForOil({
+      oemSpec,
+      viscosity
+    })
 
   return (
     products.find(
