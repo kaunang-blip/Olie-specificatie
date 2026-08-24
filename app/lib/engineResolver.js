@@ -1,38 +1,23 @@
-function normalize(value = '') {
+import { findOilMatch } from './oilMatches'
+import { findProductByBrand } from './oilProducts'
+import { resolveEngine } from './engineResolver'
+
+const VEHICLE_FINDER_BASE =
+  'https://api.vehicle-finder.com/v1'
+
+function clean(value = '') {
+  return String(value).trim()
+}
+
+function normalizeSpec(value = '') {
   return String(value)
     .toUpperCase()
+    .replace(/[._-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-function includes(value, wanted) {
-  return normalize(value).includes(
-    normalize(wanted)
-  )
-}
-
-function numberClose(
-  actual,
-  expected,
-  tolerance = 2
-) {
-  const a = Number(actual)
-  const e = Number(expected)
-
-  if (
-    !Number.isFinite(a) ||
-    !Number.isFinite(e)
-  ) {
-    return false
-  }
-
-  return Math.abs(a - e) <= tolerance
-}
-
-function getYear(vehicle) {
-  const date =
-    vehicle?.datumEersteToelating
-
+function getYear(date) {
   if (!date) return null
 
   const parts =
@@ -42,472 +27,809 @@ function getYear(vehicle) {
     return null
   }
 
-  const year =
-    Number(parts[2])
+  return parts[2]
+}
 
-  return Number.isFinite(year)
-    ? year
-    : null
+function getModel(vehicle) {
+  if (!vehicle?.handelsbenaming) {
+    return ''
+  }
+
+  let model =
+    String(
+      vehicle.handelsbenaming
+    ).trim()
+
+  if (vehicle.merk) {
+    const merk =
+      String(vehicle.merk).trim()
+
+    if (
+      model
+        .toUpperCase()
+        .startsWith(
+          merk.toUpperCase()
+        )
+    ) {
+      model =
+        model
+          .slice(merk.length)
+          .trim()
+    }
+  }
+
+  return model
+}
+
+async function fetchJson(
+  url,
+  options = {}
+) {
+  const response =
+    await fetch(url, {
+      ...options,
+      cache: 'no-store'
+    })
+
+  let data = null
+
+  try {
+    data =
+      await response.json()
+  } catch {
+    data = null
+  }
+
+  return {
+    ok:
+      response.ok,
+
+    status:
+      response.status,
+
+    data
+  }
 }
 
 /*
   ==================================================
-  MOTORFAMILIEREGELS
+  PRODUCTMATCH
   ==================================================
-
-  Dit bestand probeert een motorfamilie te bepalen
-  uit RDW-data.
-
-  Belangrijk verschil met oilMatches.js:
-
-  - hier bepalen we de MOTOR;
-  - ergens anders bepalen we de OLIE.
-
-  Daardoor kunnen meerdere modellen dezelfde
-  motorfamilie gebruiken.
 */
 
-const engineRules = [
-
-  /*
-    PSA / PEUGEOT / CITROËN
-    1.2 PureTech / EB2 familie
-  */
-
-  {
-    id: 'psa-eb2-12-60kw',
-
-    manufacturers: [
-      'PEUGEOT',
-      'CITROEN',
-      'CITROËN',
-      'DS'
-    ],
-
-    displacement: 1199,
-    displacementTolerance: 5,
-
-    powerKw: 60,
-    powerTolerance: 1,
-
-    fuel: 'BENZINE',
-
-    yearFrom: 2012,
-    yearTo: 2020,
-
-    result: {
-      family: 'EB2',
-      name: '1.2 PureTech 82',
-      displacement: 1199,
-      powerKw: 60,
-      powerPk: 82
-    }
-  },
-
-  /*
-    OPEL KARL / VIVA
-    1.0 B10XE
-  */
-
-  {
-    id: 'opel-b10xe',
-
-    manufacturers: [
-      'OPEL'
-    ],
-
-    models: [
-      'KARL',
-      'VIVA'
-    ],
-
-    displacement: 999,
-    displacementTolerance: 5,
-
-    powerKw: 55,
-    powerTolerance: 1,
-
-    fuel: 'BENZINE',
-
-    yearFrom: 2015,
-    yearTo: 2019,
-
-    result: {
-      family: 'B10XE',
-      code: 'B10XE',
-      name: '1.0',
-      displacement: 999,
-      powerKw: 55,
-      powerPk: 75
-    }
-  },
-
-  /*
-    RENAULT / NISSAN M9R
-  */
-
-  {
-    id: 'renault-m9r-84kw',
-
-    manufacturers: [
-      'RENAULT'
-    ],
-
-    models: [
-      'TRAFIC'
-    ],
-
-    displacement: 1995,
-    displacementTolerance: 10,
-
-    powerKw: 84,
-    powerTolerance: 2,
-
-    fuel: 'DIESEL',
-
-    yearFrom: 2006,
-    yearTo: 2014,
-
-    result: {
-      family: 'M9R',
-      code: 'M9R',
-      name: '2.0 dCi',
-      displacement: 1995,
-      powerKw: 84,
-      powerPk: 114
-    }
-  },
-
-  /*
-    VAG 1.8 TFSI CDHA
-  */
-
-  {
-    id: 'vag-cdha-88kw',
-
-    manufacturers: [
-      'AUDI'
-    ],
-
-    models: [
-      'A4'
-    ],
-
-    displacement: 1798,
-    displacementTolerance: 10,
-
-    powerKw: 88,
-    powerTolerance: 2,
-
-    fuel: 'BENZINE',
-
-    yearFrom: 2008,
-    yearTo: 2015,
-
-    result: {
-      family: 'EA888',
-      code: 'CDHA',
-      name: '1.8 TFSI',
-      displacement: 1798,
-      powerKw: 88,
-      powerPk: 120
-    }
-  }
-]
-
-function manufacturerMatches(
-  vehicle,
-  rule
-) {
+function buildProducts(oil) {
   if (
-    !Array.isArray(
-      rule.manufacturers
-    ) ||
-    rule.manufacturers.length === 0
+    !oil?.specification ||
+    !oil?.viscosity
   ) {
-    return true
+    return {
+      shell: null,
+      ok: null,
+      mpm: null
+    }
   }
 
-  const manufacturer =
-    normalize(vehicle.merk)
+  const spec =
+    normalizeSpec(
+      oil.specification
+    )
 
-  return rule.manufacturers.some(
-    (item) =>
-      manufacturer ===
-      normalize(item)
-  )
+  return {
+    shell:
+      findProductByBrand({
+        oemSpec: spec,
+        viscosity:
+          oil.viscosity,
+        brand: 'Shell'
+      }),
+
+    ok:
+      findProductByBrand({
+        oemSpec: spec,
+        viscosity:
+          oil.viscosity,
+        brand: 'OK Olie'
+      }),
+
+    mpm:
+      findProductByBrand({
+        oemSpec: spec,
+        viscosity:
+          oil.viscosity,
+        brand: 'MPM'
+      })
+  }
 }
 
-function modelMatches(
-  vehicle,
-  rule
+/*
+  ==================================================
+  VEHICLE FINDER
+  ==================================================
+*/
+
+async function tryVehicleFinder(
+  vehicle
 ) {
-  if (
-    !Array.isArray(rule.models) ||
-    rule.models.length === 0
-  ) {
-    return true
-  }
+  const apiKey =
+    process.env
+      .VEHICLE_FINDER_API_KEY
 
-  return rule.models.some(
-    (model) =>
-      includes(
-        vehicle.handelsbenaming,
-        model
-      )
-  )
-}
-
-function fuelMatches(
-  vehicle,
-  rule
-) {
-  if (!rule.fuel) {
-    return true
-  }
-
-  return includes(
-    vehicle.brandstof,
-    rule.fuel
-  )
-}
-
-function yearMatches(
-  vehicle,
-  rule
-) {
-  if (
-    !rule.yearFrom &&
-    !rule.yearTo
-  ) {
-    return true
+  if (!apiKey) {
+    return {
+      success: false,
+      reason: 'missing-api-key'
+    }
   }
 
   const year =
-    getYear(vehicle)
-
-  if (!year) {
-    return false
-  }
-
-  if (
-    rule.yearFrom &&
-    year < rule.yearFrom
-  ) {
-    return false
-  }
-
-  if (
-    rule.yearTo &&
-    year > rule.yearTo
-  ) {
-    return false
-  }
-
-  return true
-}
-
-function scoreRule(
-  vehicle,
-  rule
-) {
-  let score = 0
-  const reasons = []
-
-  if (
-    !manufacturerMatches(
-      vehicle,
-      rule
+    getYear(
+      vehicle
+        .datumEersteToelating
     )
-  ) {
-    return null
-  }
 
-  score += 25
-  reasons.push('merk')
+  const make =
+    clean(vehicle.merk)
 
-  if (!modelMatches(vehicle, rule)) {
-    return null
-  }
+  const model =
+    getModel(vehicle)
 
   if (
-    Array.isArray(rule.models) &&
-    rule.models.length > 0
+    !year ||
+    !make ||
+    !model
   ) {
-    score += 20
-    reasons.push('model')
-  }
+    return {
+      success: false,
 
-  if (!fuelMatches(vehicle, rule)) {
-    return null
-  }
-
-  if (rule.fuel) {
-    score += 15
-    reasons.push('brandstof')
-  }
-
-  if (!yearMatches(vehicle, rule)) {
-    return null
-  }
-
-  if (
-    rule.yearFrom ||
-    rule.yearTo
-  ) {
-    score += 10
-    reasons.push('bouwjaar')
-  }
-
-  if (rule.displacement) {
-    if (
-      !numberClose(
-        vehicle.cilinderinhoud,
-        rule.displacement,
-        rule.displacementTolerance ??
-          20
-      )
-    ) {
-      return null
+      reason:
+        'insufficient-vehicle-data'
     }
-
-    score += 35
-    reasons.push('cilinderinhoud')
   }
 
-  if (rule.powerKw) {
-    if (
-      !numberClose(
-        vehicle.vermogenKw,
-        rule.powerKw,
-        rule.powerTolerance ??
-          3
-      )
-    ) {
-      return null
-    }
+  const url =
+    `${VEHICLE_FINDER_BASE}/vehicles` +
+    `?year=${encodeURIComponent(year)}` +
+    `&make=${encodeURIComponent(make)}` +
+    `&model=${encodeURIComponent(model)}`
 
-    score += 45
-    reasons.push('vermogen')
+  const vehicleResult =
+    await fetchJson(
+      url,
+      {
+        headers: {
+          'X-API-Key':
+            apiKey
+        }
+      }
+    )
+
+  if (!vehicleResult.ok) {
+    return {
+      success: false,
+
+      reason:
+        'vehicle-not-found',
+
+      status:
+        vehicleResult.status
+    }
+  }
+
+  const vehicles =
+    Array.isArray(
+      vehicleResult.data?.data
+    )
+      ? vehicleResult.data.data
+      : []
+
+  if (!vehicles.length) {
+    return {
+      success: false,
+
+      reason:
+        'vehicle-list-empty'
+    }
+  }
+
+  const found =
+    vehicles[0]
+
+  if (!found?.id) {
+    return {
+      success: false,
+
+      reason:
+        'missing-vehicle-id'
+    }
+  }
+
+  const oilResult =
+    await fetchJson(
+      `${VEHICLE_FINDER_BASE}/vehicles/${encodeURIComponent(
+        found.id
+      )}/oil-change`,
+      {
+        headers: {
+          'X-API-Key':
+            apiKey
+        }
+      }
+    )
+
+  if (!oilResult.ok) {
+    return {
+      success: false,
+
+      reason:
+        'oil-not-found',
+
+      vehicle:
+        found
+    }
+  }
+
+  const rawOil =
+    oilResult.data?.data ||
+    oilResult.data
+
+  const spec =
+    rawOil?.oil_spec ||
+    null
+
+  if (!spec) {
+    return {
+      success: false,
+
+      reason:
+        'oil-spec-missing',
+
+      vehicle:
+        found
+    }
   }
 
   return {
-    score,
-    reasons
+    success: true,
+
+    source:
+      'vehicle-finder',
+
+    confidence:
+      found.engine
+        ? 'high'
+        : 'medium',
+
+    vehicle:
+      found,
+
+    engine:
+      found.engine ||
+      null,
+
+    oil: {
+      viscosity:
+        spec.viscosity ||
+        null,
+
+      specification:
+        spec.oem_spec ||
+        null,
+
+      oilType:
+        spec.oil_type ||
+        null,
+
+      capacityWithFilter:
+        spec
+          .capacity_with_filter ??
+        null,
+
+      capacityWithoutFilter:
+        spec
+          .capacity_without_filter ??
+        null
+    }
   }
 }
 
-export function resolveEngine(
+/*
+  ==================================================
+  OUDE LOKALE EXACTE MATCH
+  ==================================================
+*/
+
+function resolveLegacyLocalOil(
   vehicle
 ) {
-  if (!vehicle) {
+  const match =
+    findOilMatch(vehicle)
+
+  if (!match) {
+    return null
+  }
+
+  return {
+    source:
+      'local-database',
+
+    confidence:
+      'high',
+
+    engine: {
+      name:
+        match.engine?.naam ||
+        null,
+
+      code:
+        match.engine?.motorcode ||
+        null,
+
+      family:
+        null,
+
+      powerKw:
+        match.engine
+          ?.vermogenKw ??
+        null,
+
+      powerPk:
+        match.engine
+          ?.vermogenPk ??
+        null
+    },
+
+    oil: {
+      viscosity:
+        match.oil
+          ?.viscositeit ||
+        null,
+
+      specification:
+        match.oil
+          ?.oemSpecificatie ||
+        null,
+
+      acea:
+        match.oil?.acea ||
+        null,
+
+      capacityWithFilter:
+        match.oil
+          ?.inhoudMetFilter ??
+        null,
+
+      alternativeViscosities:
+        match.oil
+          ?.alternatieveViscositeiten ||
+        [],
+
+      requiresDpfCheck:
+        match.oil
+          ?.requiresDpfCheck ===
+        true,
+
+      variants:
+        match.oil
+          ?.variants ||
+        null
+    }
+  }
+}
+
+/*
+  ==================================================
+  MOTORFAMILIE → OLIE
+  ==================================================
+
+  Dit is bewust een aparte laag.
+
+  Motorherkenning kan dus groeien zonder
+  dat de frontend verandert.
+*/
+
+function oilFromEngineFamily(
+  engineResult
+) {
+  if (
+    !engineResult?.found ||
+    !engineResult.engine
+  ) {
+    return null
+  }
+
+  const family =
+    String(
+      engineResult.engine.family ||
+      ''
+    ).toUpperCase()
+
+  /*
+    Opel B10XE
+  */
+
+  if (family === 'B10XE') {
     return {
-      found: false,
-      confidence: 'unknown',
-      engine: null
+      viscosity: '5W-30',
+
+      specification:
+        'GM DEXOS2',
+
+      acea:
+        'ACEA C3',
+
+      capacityWithFilter:
+        4.0
     }
   }
 
-  const candidates =
-    engineRules
-      .map((rule) => {
-        const match =
-          scoreRule(
-            vehicle,
-            rule
-          )
+  /*
+    Audi CDHA / EA888
 
-        if (!match) {
-          return null
-        }
+    We houden hier alleen de eerder
+    gecontroleerde CDHA-regel aan.
+  */
 
-        return {
-          rule,
-          score:
-            match.score,
-          reasons:
-            match.reasons
-        }
-      })
-      .filter(Boolean)
-      .sort(
-        (a, b) =>
-          b.score - a.score
-      )
-
-  if (!candidates.length) {
+  if (
+    family === 'EA888' &&
+    engineResult.engine.code ===
+      'CDHA'
+  ) {
     return {
-      found: false,
+      viscosity:
+        '5W-30',
 
-      confidence:
-        'unknown',
+      specification:
+        'VW 502 00'
+    }
+  }
 
-      engine: null,
+  /*
+    Renault M9R:
 
-      vehicleIdentifiers: {
-        merk:
-          vehicle.merk ||
-          null,
+    niet automatisch gokken tussen
+    RN0710 en RN0720 zonder DPF-status.
+  */
 
-        model:
-          vehicle.handelsbenaming ||
-          null,
+  if (family === 'M9R') {
+    return {
+      viscosity: null,
+      specification: null,
 
-        type:
-          vehicle.type ||
-          null,
+      requiresDpfCheck:
+        true,
 
-        variant:
-          vehicle.variant ||
-          null,
+      variants: {
+        withDpf: {
+          viscosity:
+            '5W-30',
 
-        uitvoering:
-          vehicle.uitvoering ||
-          null,
+          specification:
+            'Renault RN0720',
 
-        typegoedkeuringsnummer:
-          vehicle.typegoedkeuringsnummer ||
-          null,
+          acea:
+            'ACEA C4'
+        },
 
-        cilinderinhoud:
-          vehicle.cilinderinhoud ??
-          null,
+        withoutDpf: {
+          viscosity:
+            '5W-40',
 
-        vermogenKw:
-          vehicle.vermogenKw ??
-          null
+          specification:
+            'Renault RN0710',
+
+          acea:
+            'ACEA A3/B4'
+        }
       }
     }
   }
 
-  const best =
-    candidates[0]
+  /*
+    PSA EB2-familie
 
-  let confidence =
-    'medium'
+    We herkennen hier nu bewust eerst
+    de motorfamilie.
 
-  if (best.score >= 130) {
-    confidence = 'high'
+    We geven nog GEEN oliespecificatie
+    terug wanneer die niet met voldoende
+    zekerheid uit onze bronnen volgt.
+
+    Dat is veiliger dan gokken.
+  */
+
+  if (family === 'EB2') {
+    return {
+      viscosity: null,
+      specification: null,
+
+      requiresManufacturerOilData:
+        true
+    }
   }
 
+  return null
+}
+
+/*
+  ==================================================
+  HOOFDRESOLVER
+  ==================================================
+*/
+
+export async function resolveOil(
+  vehicle
+) {
+  if (!vehicle) {
+    return {
+      success: false,
+      source: 'none',
+      confidence: 'unknown',
+      engine: null,
+      oil: null,
+      products: null
+    }
+  }
+
+  /*
+    1. Bepaal eerst zelfstandig
+       de motorfamilie.
+  */
+
+  const engineResult =
+    resolveEngine(vehicle)
+
+  /*
+    2. Oude gecontroleerde lokale
+       oliegegevens blijven voorlopig
+       bruikbaar.
+  */
+
+  const legacy =
+    resolveLegacyLocalOil(
+      vehicle
+    )
+
+  if (
+    legacy?.oil?.viscosity &&
+    legacy?.oil?.specification
+  ) {
+    return {
+      success: true,
+
+      vehicle,
+
+      source:
+        legacy.source,
+
+      confidence:
+        legacy.confidence,
+
+      engine:
+        legacy.engine,
+
+      oil:
+        legacy.oil,
+
+      products:
+        buildProducts(
+          legacy.oil
+        )
+    }
+  }
+
+  /*
+    3. Vehicle Finder proberen.
+  */
+
+  const external =
+    await tryVehicleFinder(
+      vehicle
+    )
+
+  if (
+    external.success &&
+    external.oil
+      ?.specification
+  ) {
+    return {
+      success: true,
+
+      vehicle,
+
+      source:
+        external.source,
+
+      confidence:
+        external.confidence,
+
+      engine:
+        engineResult.found
+          ? {
+              name:
+                engineResult
+                  .engine.name,
+
+              code:
+                engineResult
+                  .engine.code ||
+                null,
+
+              family:
+                engineResult
+                  .engine.family ||
+                null,
+
+              powerKw:
+                engineResult
+                  .engine.powerKw ??
+                null,
+
+              powerPk:
+                engineResult
+                  .engine.powerPk ??
+                null
+            }
+          : external.engine
+            ? {
+                name:
+                  external.engine,
+
+                code: null,
+                family: null
+              }
+            : null,
+
+      oil:
+        external.oil,
+
+      products:
+        buildProducts(
+          external.oil
+        ),
+
+      engineMatch:
+        engineResult
+    }
+  }
+
+  /*
+    4. Nieuwe motorfamilieresolver.
+  */
+
+  if (engineResult.found) {
+    const familyOil =
+      oilFromEngineFamily(
+        engineResult
+      )
+
+    const engine = {
+      name:
+        engineResult.engine.name ||
+        null,
+
+      code:
+        engineResult.engine.code ||
+        null,
+
+      family:
+        engineResult.engine.family ||
+        null,
+
+      powerKw:
+        engineResult.engine.powerKw ??
+        null,
+
+      powerPk:
+        engineResult.engine.powerPk ??
+        null
+    }
+
+    if (
+      familyOil?.viscosity &&
+      familyOil?.specification
+    ) {
+      return {
+        success: true,
+
+        vehicle,
+
+        source:
+          'engine-resolver',
+
+        confidence:
+          engineResult.confidence,
+
+        engine,
+
+        oil:
+          familyOil,
+
+        products:
+          buildProducts(
+            familyOil
+          ),
+
+        engineMatch:
+          engineResult
+      }
+    }
+
+    /*
+      Motor is wél gevonden,
+      maar definitieve olie nog niet.
+    */
+
+    return {
+      success: false,
+
+      vehicle,
+
+      source:
+        'engine-resolver',
+
+      confidence:
+        engineResult.confidence,
+
+      engine,
+
+      oil:
+        familyOil,
+
+      products: {
+        shell: null,
+        ok: null,
+        mpm: null
+      },
+
+      needsMoreInformation:
+        familyOil
+          ?.requiresDpfCheck ===
+          true,
+
+      needsManufacturerOilData:
+        familyOil
+          ?.requiresManufacturerOilData ===
+          true,
+
+      engineMatch:
+        engineResult,
+
+      message:
+        'Motorfamilie herkend, maar de definitieve oliespecificatie is nog niet betrouwbaar bevestigd.'
+    }
+  }
+
+  /*
+    5. Helemaal onbekend.
+  */
+
   return {
-    found: true,
+    success: false,
 
-    confidence,
+    vehicle,
 
-    engine: {
-      ...best.rule.result
+    source:
+      'rdw-only',
+
+    confidence:
+      'unknown',
+
+    engine: null,
+    oil: null,
+
+    products: {
+      shell: null,
+      ok: null,
+      mpm: null
     },
 
-    match: {
-      ruleId:
-        best.rule.id,
+    externalFailure: {
+      reason:
+        external.reason ||
+        'unknown'
+    },
 
-      score:
-        best.score,
-
-      reasons:
-        best.reasons
-    }
+    message:
+      'Voertuig gevonden via RDW, maar motor en oliespecificatie konden nog niet betrouwbaar worden bepaald.'
   }
 }
