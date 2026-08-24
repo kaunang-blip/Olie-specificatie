@@ -1,13 +1,85 @@
 function normalize(value = '') {
   return String(value)
     .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .trim()
+}
+
+function normalizeText(value = '') {
+  return String(value)
+    .toUpperCase()
     .replace(/\s+/g, ' ')
     .trim()
 }
 
 function includesText(value, wanted) {
-  return normalize(value).includes(
-    normalize(wanted)
+  if (!wanted) return true
+
+  return normalizeText(value).includes(
+    normalizeText(wanted)
+  )
+}
+
+function includesAnyText(
+  value,
+  wantedValues = []
+) {
+  if (
+    !Array.isArray(wantedValues) ||
+    wantedValues.length === 0
+  ) {
+    return true
+  }
+
+  return wantedValues.some(
+    (wanted) =>
+      includesText(
+        value,
+        wanted
+      )
+  )
+}
+
+function equalsAnyNormalized(
+  value,
+  wantedValues = []
+) {
+  if (
+    !Array.isArray(wantedValues) ||
+    wantedValues.length === 0
+  ) {
+    return true
+  }
+
+  const actual =
+    normalize(value)
+
+  return wantedValues.some(
+    (wanted) =>
+      actual ===
+      normalize(wanted)
+  )
+}
+
+function startsWithAnyNormalized(
+  value,
+  wantedValues = []
+) {
+  if (
+    !Array.isArray(wantedValues) ||
+    wantedValues.length === 0
+  ) {
+    return true
+  }
+
+  const actual =
+    normalize(value)
+
+  return wantedValues.some(
+    (wanted) =>
+      actual.startsWith(
+        normalize(wanted)
+      )
   )
 }
 
@@ -26,10 +98,12 @@ function numberClose(
     return false
   }
 
-  return Math.abs(a - e) <= tolerance
+  return (
+    Math.abs(a - e) <= tolerance
+  )
 }
 
-function getYear(vehicle) {
+function getVehicleYear(vehicle) {
   const date =
     vehicle?.datumEersteToelating
 
@@ -53,28 +127,44 @@ function getYear(vehicle) {
 }
 
 /*
-  =========================================
-  MOTORFAMILIES
-  =========================================
+  ==================================================
+  MOTORREGELS
+  ==================================================
 
-  Deze regels bepalen alleen de motor.
+  Een regel kan nu gebruikmaken van:
 
-  Olie wordt later door oilResolver.js
-  bepaald.
+  manufacturers
+  models
+
+  type
+  variant
+  uitvoering
+  typegoedkeuringsnummer
+
+  cilinderinhoud
+  vermogen
+  brandstof
+  bouwjaar
+
+  Velden die niet zijn ingevuld,
+  worden niet verplicht.
 */
 
 const engineRules = [
 
   /*
-    PEUGEOT / CITROEN / DS
-    1.2 benzine
-    EB2 / PureTech 82
+    ==================================================
+    PSA EB2
+    Peugeot / Citroën / DS
+    1.2 PureTech 82
     1199 cc
     60 kW
+    ==================================================
   */
 
   {
-    id: 'psa-eb2-12-60kw',
+    id:
+      'psa-eb2-12-60kw',
 
     manufacturers: [
       'PEUGEOT',
@@ -83,36 +173,64 @@ const engineRules = [
       'DS'
     ],
 
-    displacement: 1199,
-    displacementTolerance: 5,
+    /*
+      Deze motorfamilie kwam in meerdere
+      modellen voor, dus model is bewust
+      niet verplicht.
+    */
 
-    powerKw: 60,
-    powerTolerance: 2,
+    displacement:
+      1199,
 
-    fuel: 'BENZINE',
+    displacementTolerance:
+      5,
 
-    yearFrom: 2012,
-    yearTo: 2020,
+    powerKw:
+      60,
+
+    powerTolerance:
+      2,
+
+    fuel:
+      'BENZINE',
+
+    yearFrom:
+      2012,
+
+    yearTo:
+      2020,
 
     result: {
-      family: 'EB2',
-      code: null,
-      name: '1.2 PureTech 82',
+      family:
+        'EB2',
 
-      displacement: 1199,
+      code:
+        null,
 
-      powerKw: 60,
-      powerPk: 82
+      name:
+        '1.2 PureTech 82',
+
+      displacement:
+        1199,
+
+      powerKw:
+        60,
+
+      powerPk:
+        82
     }
   },
 
   /*
-    OPEL KARL / VIVA
-    1.0 B10XE
+    ==================================================
+    OPEL B10XE
+    Karl / Viva
+    ==================================================
   */
 
   {
-    id: 'opel-b10xe',
+    id:
+      'opel-b10xe',
 
     manufacturers: [
       'OPEL'
@@ -123,36 +241,58 @@ const engineRules = [
       'VIVA'
     ],
 
-    displacement: 999,
-    displacementTolerance: 5,
+    displacement:
+      999,
 
-    powerKw: 55,
-    powerTolerance: 2,
+    displacementTolerance:
+      5,
 
-    fuel: 'BENZINE',
+    powerKw:
+      55,
 
-    yearFrom: 2015,
-    yearTo: 2019,
+    powerTolerance:
+      2,
+
+    fuel:
+      'BENZINE',
+
+    yearFrom:
+      2015,
+
+    yearTo:
+      2019,
 
     result: {
-      family: 'B10XE',
-      code: 'B10XE',
-      name: '1.0',
+      family:
+        'B10XE',
 
-      displacement: 999,
+      code:
+        'B10XE',
 
-      powerKw: 55,
-      powerPk: 75
+      name:
+        '1.0',
+
+      displacement:
+        999,
+
+      powerKw:
+        55,
+
+      powerPk:
+        75
     }
   },
 
   /*
-    RENAULT TRAFIC
-    2.0 dCi M9R
+    ==================================================
+    RENAULT M9R
+    Trafic 2.0 dCi
+    ==================================================
   */
 
   {
-    id: 'renault-m9r-84kw',
+    id:
+      'renault-m9r-84kw',
 
     manufacturers: [
       'RENAULT'
@@ -162,36 +302,58 @@ const engineRules = [
       'TRAFIC'
     ],
 
-    displacement: 1995,
-    displacementTolerance: 10,
+    displacement:
+      1995,
 
-    powerKw: 84,
-    powerTolerance: 2,
+    displacementTolerance:
+      10,
 
-    fuel: 'DIESEL',
+    powerKw:
+      84,
 
-    yearFrom: 2006,
-    yearTo: 2014,
+    powerTolerance:
+      2,
+
+    fuel:
+      'DIESEL',
+
+    yearFrom:
+      2006,
+
+    yearTo:
+      2014,
 
     result: {
-      family: 'M9R',
-      code: 'M9R',
-      name: '2.0 dCi',
+      family:
+        'M9R',
 
-      displacement: 1995,
+      code:
+        'M9R',
 
-      powerKw: 84,
-      powerPk: 114
+      name:
+        '2.0 dCi',
+
+      displacement:
+        1995,
+
+      powerKw:
+        84,
+
+      powerPk:
+        114
     }
   },
 
   /*
-    AUDI A4
-    1.8 TFSI CDHA
+    ==================================================
+    AUDI CDHA
+    A4 1.8 TFSI
+    ==================================================
   */
 
   {
-    id: 'audi-cdha-88kw',
+    id:
+      'audi-cdha-88kw',
 
     manufacturers: [
       'AUDI'
@@ -201,29 +363,54 @@ const engineRules = [
       'A4'
     ],
 
-    displacement: 1798,
-    displacementTolerance: 10,
+    displacement:
+      1798,
 
-    powerKw: 88,
-    powerTolerance: 2,
+    displacementTolerance:
+      10,
 
-    fuel: 'BENZINE',
+    powerKw:
+      88,
 
-    yearFrom: 2008,
-    yearTo: 2015,
+    powerTolerance:
+      2,
+
+    fuel:
+      'BENZINE',
+
+    yearFrom:
+      2008,
+
+    yearTo:
+      2015,
 
     result: {
-      family: 'EA888',
-      code: 'CDHA',
-      name: '1.8 TFSI',
+      family:
+        'EA888',
 
-      displacement: 1798,
+      code:
+        'CDHA',
 
-      powerKw: 88,
-      powerPk: 120
+      name:
+        '1.8 TFSI',
+
+      displacement:
+        1798,
+
+      powerKw:
+        88,
+
+      powerPk:
+        120
     }
   }
 ]
+
+/*
+  ==================================================
+  MATCHFUNCTIES
+  ==================================================
+*/
 
 function manufacturerMatches(
   vehicle,
@@ -238,13 +425,9 @@ function manufacturerMatches(
     return true
   }
 
-  const actual =
-    normalize(vehicle.merk)
-
-  return rule.manufacturers.some(
-    (manufacturer) =>
-      actual ===
-      normalize(manufacturer)
+  return equalsAnyNormalized(
+    vehicle.merk,
+    rule.manufacturers
   )
 }
 
@@ -259,15 +442,9 @@ function modelMatches(
     return true
   }
 
-  const model =
-    vehicle.handelsbenaming || ''
-
-  return rule.models.some(
-    (wanted) =>
-      includesText(
-        model,
-        wanted
-      )
+  return includesAnyText(
+    vehicle.handelsbenaming,
+    rule.models
   )
 }
 
@@ -297,7 +474,7 @@ function yearMatches(
   }
 
   const year =
-    getYear(vehicle)
+    getVehicleYear(vehicle)
 
   if (!year) {
     return false
@@ -320,11 +497,91 @@ function yearMatches(
   return true
 }
 
+function typeMatches(
+  vehicle,
+  rule
+) {
+  if (
+    !Array.isArray(rule.types) ||
+    rule.types.length === 0
+  ) {
+    return true
+  }
+
+  return equalsAnyNormalized(
+    vehicle.type,
+    rule.types
+  )
+}
+
+function variantMatches(
+  vehicle,
+  rule
+) {
+  if (
+    !Array.isArray(rule.variants) ||
+    rule.variants.length === 0
+  ) {
+    return true
+  }
+
+  return startsWithAnyNormalized(
+    vehicle.variant,
+    rule.variants
+  )
+}
+
+function uitvoeringMatches(
+  vehicle,
+  rule
+) {
+  if (
+    !Array.isArray(
+      rule.uitvoeringen
+    ) ||
+    rule.uitvoeringen.length === 0
+  ) {
+    return true
+  }
+
+  return startsWithAnyNormalized(
+    vehicle.uitvoering,
+    rule.uitvoeringen
+  )
+}
+
+function typegoedkeuringMatches(
+  vehicle,
+  rule
+) {
+  if (
+    !Array.isArray(
+      rule.typegoedkeuringPrefixes
+    ) ||
+    rule.typegoedkeuringPrefixes
+      .length === 0
+  ) {
+    return true
+  }
+
+  return startsWithAnyNormalized(
+    vehicle.typegoedkeuringsnummer,
+    rule.typegoedkeuringPrefixes
+  )
+}
+
+/*
+  ==================================================
+  SCORE
+  ==================================================
+*/
+
 function scoreRule(
   vehicle,
   rule
 ) {
   let score = 0
+
   const reasons = []
 
   /*
@@ -340,8 +597,15 @@ function scoreRule(
     return null
   }
 
-  score += 25
-  reasons.push('merk')
+  if (
+    Array.isArray(
+      rule.manufacturers
+    ) &&
+    rule.manufacturers.length > 0
+  ) {
+    score += 25
+    reasons.push('merk')
+  }
 
   /*
     MODEL
@@ -362,6 +626,100 @@ function scoreRule(
   ) {
     score += 20
     reasons.push('model')
+  }
+
+  /*
+    TYPE
+  */
+
+  if (
+    !typeMatches(
+      vehicle,
+      rule
+    )
+  ) {
+    return null
+  }
+
+  if (
+    Array.isArray(rule.types) &&
+    rule.types.length > 0
+  ) {
+    score += 20
+    reasons.push('type')
+  }
+
+  /*
+    VARIANT
+  */
+
+  if (
+    !variantMatches(
+      vehicle,
+      rule
+    )
+  ) {
+    return null
+  }
+
+  if (
+    Array.isArray(
+      rule.variants
+    ) &&
+    rule.variants.length > 0
+  ) {
+    score += 30
+    reasons.push('variant')
+  }
+
+  /*
+    UITVOERING
+  */
+
+  if (
+    !uitvoeringMatches(
+      vehicle,
+      rule
+    )
+  ) {
+    return null
+  }
+
+  if (
+    Array.isArray(
+      rule.uitvoeringen
+    ) &&
+    rule.uitvoeringen.length > 0
+  ) {
+    score += 25
+    reasons.push('uitvoering')
+  }
+
+  /*
+    TYPEGOEDKEURING
+  */
+
+  if (
+    !typegoedkeuringMatches(
+      vehicle,
+      rule
+    )
+  ) {
+    return null
+  }
+
+  if (
+    Array.isArray(
+      rule.typegoedkeuringPrefixes
+    ) &&
+    rule.typegoedkeuringPrefixes
+      .length > 0
+  ) {
+    score += 35
+
+    reasons.push(
+      'typegoedkeuring'
+    )
   }
 
   /*
@@ -407,7 +765,9 @@ function scoreRule(
     CILINDERINHOUD
   */
 
-  if (rule.displacement) {
+  if (
+    rule.displacement
+  ) {
     if (
       !numberClose(
         vehicle.cilinderinhoud,
@@ -420,6 +780,7 @@ function scoreRule(
     }
 
     score += 35
+
     reasons.push(
       'cilinderinhoud'
     )
@@ -429,7 +790,9 @@ function scoreRule(
     VERMOGEN
   */
 
-  if (rule.powerKw) {
+  if (
+    rule.powerKw
+  ) {
     if (
       !numberClose(
         vehicle.vermogenKw,
@@ -442,7 +805,10 @@ function scoreRule(
     }
 
     score += 45
-    reasons.push('vermogen')
+
+    reasons.push(
+      'vermogen'
+    )
   }
 
   return {
@@ -452,10 +818,9 @@ function scoreRule(
 }
 
 /*
-  =========================================
-  BELANGRIJK:
-  DIT IS DE EXPORT DIE VERCEL MIST
-  =========================================
+  ==================================================
+  HOOFDRESOLVER
+  ==================================================
 */
 
 export function resolveEngine(
@@ -468,8 +833,7 @@ export function resolveEngine(
       confidence:
         'unknown',
 
-      engine:
-        null
+      engine: null
     }
   }
 
@@ -511,8 +875,7 @@ export function resolveEngine(
       confidence:
         'unknown',
 
-      engine:
-        null,
+      engine: null,
 
       vehicleIdentifiers: {
         merk:
@@ -545,6 +908,14 @@ export function resolveEngine(
 
         vermogenKw:
           vehicle.vermogenKw ??
+          null,
+
+        brandstof:
+          vehicle.brandstof ||
+          null,
+
+        datumEersteToelating:
+          vehicle.datumEersteToelating ||
           null
       }
     }
@@ -553,18 +924,62 @@ export function resolveEngine(
   const best =
     candidates[0]
 
+  /*
+    Controle op twijfelachtige dubbele
+    matches.
+
+    Als nummer 1 en nummer 2 bijna even
+    hoog scoren maar verschillende
+    motorfamilies zijn, geven we geen
+    high-confidence resultaat.
+  */
+
+  const second =
+    candidates[1] ||
+    null
+
+  let ambiguous =
+    false
+
+  if (
+    second &&
+    Math.abs(
+      best.score -
+      second.score
+    ) <= 10 &&
+    normalize(
+      best.rule.result?.family
+    ) !==
+      normalize(
+        second.rule.result?.family
+      )
+  ) {
+    ambiguous =
+      true
+  }
+
   let confidence =
     'medium'
 
-  if (best.score >= 120) {
+  if (
+    best.score >= 120 &&
+    !ambiguous
+  ) {
     confidence =
       'high'
+  }
+
+  if (ambiguous) {
+    confidence =
+      'low'
   }
 
   return {
     found: true,
 
     confidence,
+
+    ambiguous,
 
     engine: {
       ...best.rule.result
@@ -579,6 +994,34 @@ export function resolveEngine(
 
       reasons:
         best.reasons
-    }
+    },
+
+    alternatives:
+      candidates
+        .slice(1, 4)
+        .map(
+          (candidate) => ({
+            ruleId:
+              candidate.rule.id,
+
+            score:
+              candidate.score,
+
+            family:
+              candidate.rule
+                .result?.family ||
+              null,
+
+            code:
+              candidate.rule
+                .result?.code ||
+              null,
+
+            name:
+              candidate.rule
+                .result?.name ||
+              null
+          })
+        )
   }
 }
