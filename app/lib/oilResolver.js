@@ -1,5 +1,6 @@
 import { findOilMatch } from './oilMatches'
 import { findProductByBrand } from './oilProducts'
+import { resolveEngine } from './engineResolver'
 
 const VEHICLE_FINDER_BASE =
   'https://api.vehicle-finder.com/v1'
@@ -80,11 +81,71 @@ async function fetchJson(
   }
 
   return {
-    ok: response.ok,
-    status: response.status,
+    ok:
+      response.ok,
+
+    status:
+      response.status,
+
     data
   }
 }
+
+/*
+  ==================================================
+  PRODUCTMATCH
+  ==================================================
+*/
+
+function buildProducts(oil) {
+  if (
+    !oil?.specification ||
+    !oil?.viscosity
+  ) {
+    return {
+      shell: null,
+      ok: null,
+      mpm: null
+    }
+  }
+
+  const spec =
+    normalizeSpec(
+      oil.specification
+    )
+
+  return {
+    shell:
+      findProductByBrand({
+        oemSpec: spec,
+        viscosity:
+          oil.viscosity,
+        brand: 'Shell'
+      }),
+
+    ok:
+      findProductByBrand({
+        oemSpec: spec,
+        viscosity:
+          oil.viscosity,
+        brand: 'OK Olie'
+      }),
+
+    mpm:
+      findProductByBrand({
+        oemSpec: spec,
+        viscosity:
+          oil.viscosity,
+        brand: 'MPM'
+      })
+  }
+}
+
+/*
+  ==================================================
+  VEHICLE FINDER
+  ==================================================
+*/
 
 async function tryVehicleFinder(
   vehicle
@@ -119,12 +180,13 @@ async function tryVehicleFinder(
   ) {
     return {
       success: false,
+
       reason:
         'insufficient-vehicle-data'
     }
   }
 
-  const vehicleUrl =
+  const url =
     `${VEHICLE_FINDER_BASE}/vehicles` +
     `?year=${encodeURIComponent(year)}` +
     `&make=${encodeURIComponent(make)}` +
@@ -132,10 +194,11 @@ async function tryVehicleFinder(
 
   const vehicleResult =
     await fetchJson(
-      vehicleUrl,
+      url,
       {
         headers: {
-          'X-API-Key': apiKey
+          'X-API-Key':
+            apiKey
         }
       }
     )
@@ -143,8 +206,10 @@ async function tryVehicleFinder(
   if (!vehicleResult.ok) {
     return {
       success: false,
+
       reason:
         'vehicle-not-found',
+
       status:
         vehicleResult.status
     }
@@ -160,43 +225,33 @@ async function tryVehicleFinder(
   if (!vehicles.length) {
     return {
       success: false,
+
       reason:
         'vehicle-list-empty'
     }
   }
 
-  /*
-    Vehicle Finder geeft soms maar één
-    generieke modelregel terug.
-
-    Daarom behandelen we dit NIET als
-    "high confidence" tenzij er ook
-    motorinformatie aanwezig is.
-  */
-
-  const foundVehicle =
+  const found =
     vehicles[0]
 
-  if (!foundVehicle?.id) {
+  if (!found?.id) {
     return {
       success: false,
+
       reason:
         'missing-vehicle-id'
     }
   }
 
-  const oilUrl =
-    `${VEHICLE_FINDER_BASE}/vehicles/` +
-    `${encodeURIComponent(
-      foundVehicle.id
-    )}/oil-change`
-
   const oilResult =
     await fetchJson(
-      oilUrl,
+      `${VEHICLE_FINDER_BASE}/vehicles/${encodeURIComponent(
+        found.id
+      )}/oil-change`,
       {
         headers: {
-          'X-API-Key': apiKey
+          'X-API-Key':
+            apiKey
         }
       }
     )
@@ -204,10 +259,12 @@ async function tryVehicleFinder(
   if (!oilResult.ok) {
     return {
       success: false,
+
       reason:
         'oil-not-found',
+
       vehicle:
-        foundVehicle
+        found
     }
   }
 
@@ -215,18 +272,19 @@ async function tryVehicleFinder(
     oilResult.data?.data ||
     oilResult.data
 
-  const oilSpec =
+  const spec =
     rawOil?.oil_spec ||
-    rawOil?.data?.oil_spec ||
     null
 
-  if (!oilSpec) {
+  if (!spec) {
     return {
       success: false,
+
       reason:
         'oil-spec-missing',
+
       vehicle:
-        foundVehicle
+        found
     }
   }
 
@@ -237,47 +295,50 @@ async function tryVehicleFinder(
       'vehicle-finder',
 
     confidence:
-      foundVehicle.engine
+      found.engine
         ? 'high'
         : 'medium',
 
     vehicle:
-      foundVehicle,
+      found,
 
     engine:
-      foundVehicle.engine ||
+      found.engine ||
       null,
 
     oil: {
       viscosity:
-        oilSpec.viscosity ||
+        spec.viscosity ||
         null,
 
       specification:
-        oilSpec.oem_spec ||
+        spec.oem_spec ||
         null,
 
       oilType:
-        oilSpec.oil_type ||
+        spec.oil_type ||
         null,
 
       capacityWithFilter:
-        oilSpec
+        spec
           .capacity_with_filter ??
         null,
 
       capacityWithoutFilter:
-        oilSpec
+        spec
           .capacity_without_filter ??
         null
-    },
-
-    raw:
-      rawOil
+    }
   }
 }
 
-function resolveLocalOil(
+/*
+  ==================================================
+  OUDE LOKALE EXACTE MATCH
+  ==================================================
+*/
+
+function resolveLegacyLocalOil(
   vehicle
 ) {
   const match =
@@ -286,16 +347,6 @@ function resolveLocalOil(
   if (!match) {
     return null
   }
-
-  /*
-    Als de motor wel wordt herkend maar
-    er nog aanvullende informatie nodig
-    is, bijvoorbeeld DPF, kunnen
-    viscositeit en specificatie null zijn.
-
-    De motorherkenning blijft dan wel
-    bruikbaar.
-  */
 
   return {
     source:
@@ -311,6 +362,9 @@ function resolveLocalOil(
 
       code:
         match.engine?.motorcode ||
+        null,
+
+      family:
         null,
 
       powerKw:
@@ -354,78 +408,153 @@ function resolveLocalOil(
           ?.requiresDpfCheck ===
         true,
 
-      dpfStatus:
-        match.oil
-          ?.dpfStatus ||
-        null,
-
       variants:
         match.oil
           ?.variants ||
         null
-    },
-
-    matchInfo:
-      match.matchInfo ||
-      null
+    }
   }
 }
 
-function buildProducts(oil) {
+/*
+  ==================================================
+  MOTORFAMILIE → OLIE
+  ==================================================
+
+  Dit is bewust een aparte laag.
+
+  Motorherkenning kan dus groeien zonder
+  dat de frontend verandert.
+*/
+
+function oilFromEngineFamily(
+  engineResult
+) {
   if (
-    !oil?.specification ||
-    !oil?.viscosity
+    !engineResult?.found ||
+    !engineResult.engine
   ) {
+    return null
+  }
+
+  const family =
+    String(
+      engineResult.engine.family ||
+      ''
+    ).toUpperCase()
+
+  /*
+    Opel B10XE
+  */
+
+  if (family === 'B10XE') {
     return {
-      shell: null,
-      ok: null,
-      mpm: null
+      viscosity: '5W-30',
+
+      specification:
+        'GM DEXOS2',
+
+      acea:
+        'ACEA C3',
+
+      capacityWithFilter:
+        4.0
     }
   }
 
-  const specification =
-    normalizeSpec(
-      oil.specification
-    )
+  /*
+    Audi CDHA / EA888
 
-  return {
-    shell:
-      findProductByBrand({
-        oemSpec:
-          specification,
+    We houden hier alleen de eerder
+    gecontroleerde CDHA-regel aan.
+  */
 
-        viscosity:
-          oil.viscosity,
+  if (
+    family === 'EA888' &&
+    engineResult.engine.code ===
+      'CDHA'
+  ) {
+    return {
+      viscosity:
+        '5W-30',
 
-        brand:
-          'Shell'
-      }),
-
-    ok:
-      findProductByBrand({
-        oemSpec:
-          specification,
-
-        viscosity:
-          oil.viscosity,
-
-        brand:
-          'OK Olie'
-      }),
-
-    mpm:
-      findProductByBrand({
-        oemSpec:
-          specification,
-
-        viscosity:
-          oil.viscosity,
-
-        brand:
-          'MPM'
-      })
+      specification:
+        'VW 502 00'
+    }
   }
+
+  /*
+    Renault M9R:
+
+    niet automatisch gokken tussen
+    RN0710 en RN0720 zonder DPF-status.
+  */
+
+  if (family === 'M9R') {
+    return {
+      viscosity: null,
+      specification: null,
+
+      requiresDpfCheck:
+        true,
+
+      variants: {
+        withDpf: {
+          viscosity:
+            '5W-30',
+
+          specification:
+            'Renault RN0720',
+
+          acea:
+            'ACEA C4'
+        },
+
+        withoutDpf: {
+          viscosity:
+            '5W-40',
+
+          specification:
+            'Renault RN0710',
+
+          acea:
+            'ACEA A3/B4'
+        }
+      }
+    }
+  }
+
+  /*
+    PSA EB2-familie
+
+    We herkennen hier nu bewust eerst
+    de motorfamilie.
+
+    We geven nog GEEN oliespecificatie
+    terug wanneer die niet met voldoende
+    zekerheid uit onze bronnen volgt.
+
+    Dat is veiliger dan gokken.
+  */
+
+  if (family === 'EB2') {
+    return {
+      viscosity: null,
+      specification: null,
+
+      requiresManufacturerOilData:
+        true
+    }
+  }
+
+  return null
 }
+
+/*
+  ==================================================
+  HOOFDRESOLVER
+  ==================================================
+*/
 
 export async function resolveOil(
   vehicle
@@ -433,8 +562,8 @@ export async function resolveOil(
   if (!vehicle) {
     return {
       success: false,
-      confidence: 'unknown',
       source: 'none',
+      confidence: 'unknown',
       engine: null,
       oil: null,
       products: null
@@ -442,26 +571,27 @@ export async function resolveOil(
   }
 
   /*
-    ===================================
-    1. LOKALE EXACTE MOTORHERKENNING
-    ===================================
-
-    Onze lokale database is zeer specifiek:
-    merk + model + brandstof +
-    cilinderinhoud + vermogen + bouwjaar.
-
-    Als die match bestaat, vertrouwen we
-    hem meer dan een generieke externe
-    modelmatch.
+    1. Bepaal eerst zelfstandig
+       de motorfamilie.
   */
 
-  const local =
-    resolveLocalOil(vehicle)
+  const engineResult =
+    resolveEngine(vehicle)
+
+  /*
+    2. Oude gecontroleerde lokale
+       oliegegevens blijven voorlopig
+       bruikbaar.
+  */
+
+  const legacy =
+    resolveLegacyLocalOil(
+      vehicle
+    )
 
   if (
-    local &&
-    local.oil?.viscosity &&
-    local.oil?.specification
+    legacy?.oil?.viscosity &&
+    legacy?.oil?.specification
   ) {
     return {
       success: true,
@@ -469,31 +599,26 @@ export async function resolveOil(
       vehicle,
 
       source:
-        local.source,
+        legacy.source,
 
       confidence:
-        local.confidence,
+        legacy.confidence,
 
       engine:
-        local.engine,
+        legacy.engine,
 
       oil:
-        local.oil,
+        legacy.oil,
 
       products:
         buildProducts(
-          local.oil
-        ),
-
-      matchInfo:
-        local.matchInfo
+          legacy.oil
+        )
     }
   }
 
   /*
-    ===================================
-    2. VEHICLE FINDER
-    ===================================
+    3. Vehicle Finder proberen.
   */
 
   const external =
@@ -506,13 +631,10 @@ export async function resolveOil(
     external.oil
       ?.specification
   ) {
-    const result = {
+    return {
       success: true,
 
       vehicle,
-
-      externalVehicle:
-        external.vehicle,
 
       source:
         external.source,
@@ -521,16 +643,41 @@ export async function resolveOil(
         external.confidence,
 
       engine:
-        local?.engine ||
-        (
-          external.engine
+        engineResult.found
+          ? {
+              name:
+                engineResult
+                  .engine.name,
+
+              code:
+                engineResult
+                  .engine.code ||
+                null,
+
+              family:
+                engineResult
+                  .engine.family ||
+                null,
+
+              powerKw:
+                engineResult
+                  .engine.powerKw ??
+                null,
+
+              powerPk:
+                engineResult
+                  .engine.powerPk ??
+                null
+            }
+          : external.engine
             ? {
                 name:
                   external.engine,
-                code: null
+
+                code: null,
+                family: null
               }
-            : null
-        ),
+            : null,
 
       oil:
         external.oil,
@@ -538,81 +685,122 @@ export async function resolveOil(
       products:
         buildProducts(
           external.oil
-        )
+        ),
+
+      engineMatch:
+        engineResult
     }
-
-    /*
-      Als we lokaal wel exact de motor
-      kennen maar nog geen definitieve
-      olie konden kiezen, bewaren we die
-      informatie.
-    */
-
-    if (local) {
-      result.localMatch = {
-        engine:
-          local.engine,
-
-        oil:
-          local.oil,
-
-        matchInfo:
-          local.matchInfo
-      }
-    }
-
-    return result
   }
 
   /*
-    ===================================
-    3. LOKALE MOTOR ZONDER OLIEKEUZE
-    ===================================
-
-    Bijvoorbeeld Renault M9R wanneer
-    DPF-status nog niet gekozen is.
+    4. Nieuwe motorfamilieresolver.
   */
 
-  if (local) {
+  if (engineResult.found) {
+    const familyOil =
+      oilFromEngineFamily(
+        engineResult
+      )
+
+    const engine = {
+      name:
+        engineResult.engine.name ||
+        null,
+
+      code:
+        engineResult.engine.code ||
+        null,
+
+      family:
+        engineResult.engine.family ||
+        null,
+
+      powerKw:
+        engineResult.engine.powerKw ??
+        null,
+
+      powerPk:
+        engineResult.engine.powerPk ??
+        null
+    }
+
+    if (
+      familyOil?.viscosity &&
+      familyOil?.specification
+    ) {
+      return {
+        success: true,
+
+        vehicle,
+
+        source:
+          'engine-resolver',
+
+        confidence:
+          engineResult.confidence,
+
+        engine,
+
+        oil:
+          familyOil,
+
+        products:
+          buildProducts(
+            familyOil
+          ),
+
+        engineMatch:
+          engineResult
+      }
+    }
+
+    /*
+      Motor is wél gevonden,
+      maar definitieve olie nog niet.
+    */
+
     return {
-      success: true,
+      success: false,
 
       vehicle,
 
       source:
-        local.source,
+        'engine-resolver',
 
       confidence:
-        local.confidence,
+        engineResult.confidence,
 
-      engine:
-        local.engine,
+      engine,
 
       oil:
-        local.oil,
+        familyOil,
 
-      products:
-        buildProducts(
-          local.oil
-        ),
+      products: {
+        shell: null,
+        ok: null,
+        mpm: null
+      },
 
       needsMoreInformation:
-        local.oil
+        familyOil
           ?.requiresDpfCheck ===
-        true,
+          true,
 
-      matchInfo:
-        local.matchInfo
+      needsManufacturerOilData:
+        familyOil
+          ?.requiresManufacturerOilData ===
+          true,
+
+      engineMatch:
+        engineResult,
+
+      message:
+        'Motorfamilie herkend, maar de definitieve oliespecificatie is nog niet betrouwbaar bevestigd.'
     }
   }
 
   /*
-    ===================================
-    4. NIETS GEVONDEN
-    ===================================
-
-    We geven het voertuig nog steeds
-    terug, maar verzinnen geen olie.
+    5. Helemaal onbekend.
   */
 
   return {
@@ -642,6 +830,6 @@ export async function resolveOil(
     },
 
     message:
-      'Voertuig gevonden via RDW, maar er is nog geen betrouwbare oliespecificatie beschikbaar.'
+      'Voertuig gevonden via RDW, maar motor en oliespecificatie konden nog niet betrouwbaar worden bepaald.'
   }
 }
