@@ -54,63 +54,202 @@ function numberWithinTolerance(
 }
 
 /*
+  Probeert ALLEEN expliciete DPF /
+  roetfilterinformatie te herkennen.
+
+  We gokken niet op basis van bouwjaar,
+  dieseltype of emissieklasse.
+*/
+
+function parseDpfValue(value) {
+  if (
+    value === true ||
+    value === 1
+  ) {
+    return true
+  }
+
+  if (
+    value === false ||
+    value === 0
+  ) {
+    return false
+  }
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
+    return null
+  }
+
+  const text =
+    normalize(value)
+
+  const positiveValues = [
+    'JA',
+    'YES',
+    'TRUE',
+    'AANWEZIG',
+    'MET ROETFILTER',
+    'MET DPF',
+    'DPF',
+    'ROETFILTER'
+  ]
+
+  const negativeValues = [
+    'NEE',
+    'NO',
+    'FALSE',
+    'NIET AANWEZIG',
+    'ZONDER ROETFILTER',
+    'ZONDER DPF'
+  ]
+
+  if (
+    negativeValues.some(
+      (item) =>
+        text === item ||
+        text.includes(item)
+    )
+  ) {
+    return false
+  }
+
+  if (
+    positiveValues.some(
+      (item) =>
+        text === item ||
+        text.includes(item)
+    )
+  ) {
+    return true
+  }
+
+  return null
+}
+
+export function detectDpfStatus(
+  vehicle
+) {
+  if (!vehicle) {
+    return null
+  }
+
+  /*
+    We ondersteunen meerdere mogelijke
+    veldnamen zodat de RDW-route later
+    eenvoudig uitgebreid kan worden.
+  */
+
+  const possibleFields = [
+    vehicle.dpf,
+    vehicle.hasDpf,
+    vehicle.roetfilter,
+    vehicle.partikelfilter,
+    vehicle.deeltjesfilter,
+    vehicle.dieselParticulateFilter,
+    vehicle.diesel_particulate_filter
+  ]
+
+  for (
+    const value of possibleFields
+  ) {
+    const result =
+      parseDpfValue(value)
+
+    if (result !== null) {
+      return result
+    }
+  }
+
+  return null
+}
+
+/*
+  ==================================================
   MOTOR- EN OLIEDATABASE
+  ==================================================
 
   Nieuwe motoren kunnen later gewoon als
-  extra object aan deze lijst worden toegevoegd.
+  extra object aan deze array worden toegevoegd.
 
-  De match-logica onderaan hoeft daarvoor
-  niet opnieuw aangepast te worden.
+  De matching onderaan hoeft daarvoor niet
+  opnieuw geprogrammeerd te worden.
 */
 
 export const oilMatches = [
+
   /*
+    ==================================================
     AUDI A4
     1.8 TFSI
+    1798 cc
     88 kW / 120 pk
     CDHA
+    ==================================================
   */
 
   {
-    id: 'audi-a4-18tfsi-cdha-88kw',
+    id:
+      'audi-a4-18tfsi-cdha-88kw',
 
     vehicle: {
-      merk: 'AUDI',
+      merk:
+        'AUDI',
 
-      modelContains: 'A4',
+      modelContains:
+        'A4',
 
       brandstofContains:
         'BENZINE',
 
-      yearFrom: 2008,
-      yearTo: 2015,
+      yearFrom:
+        2008,
 
-      cilinderinhoud: 1798,
+      yearTo:
+        2015,
 
-      cilinderinhoudTolerance: 10,
+      cilinderinhoud:
+        1798,
 
-      vermogenKw: 88,
+      cilinderinhoudTolerance:
+        10,
 
-      vermogenTolerance: 2
+      vermogenKw:
+        88,
+
+      vermogenTolerance:
+        2
     },
 
     engine: {
-      naam: '1.8 TFSI',
+      naam:
+        '1.8 TFSI',
 
-      motorcode: 'CDHA',
+      motorcode:
+        'CDHA',
 
-      vermogenKw: 88,
+      vermogenKw:
+        88,
 
-      vermogenPk: 120
+      vermogenPk:
+        120
     },
 
     oil: {
-      viscositeit: '5W-30',
+      viscositeit:
+        '5W-30',
 
       oemSpecificatie:
         'VW 502 00',
 
-      requiresDpfCheck: false,
+      requiresDpfCheck:
+        false,
+
+      dpfStatus:
+        'not-required',
 
       shell: {
         product:
@@ -157,57 +296,93 @@ export const oilMatches = [
   },
 
   /*
+    ==================================================
     RENAULT TRAFIC
     2.0 dCi
+    1995 cc
     84 kW / 114 pk
     M9R
+    ==================================================
 
-    Bij deze motor hangt de uiteindelijke
-    oliespecificatie af van aanwezigheid
-    van een roetfilter / DPF.
+    Voor deze motor gebruiken we twee
+    varianten.
 
-    Daarom geven we nog niet blind één olie.
+    MET DPF:
+    5W-30
+    Renault RN0720
+    ACEA C4
+
+    ZONDER DPF:
+    5W-40
+    Renault RN0710
+    ACEA A3/B4
+
+    Als de DPF-status onbekend is,
+    wordt GEEN definitieve olie gekozen.
   */
 
   {
-    id: 'renault-trafic-20dci-m9r-84kw',
+    id:
+      'renault-trafic-20dci-m9r-84kw',
 
     vehicle: {
-      merk: 'RENAULT',
+      merk:
+        'RENAULT',
 
-      modelContains: 'TRAFIC',
+      modelContains:
+        'TRAFIC',
 
       brandstofContains:
         'DIESEL',
 
-      yearFrom: 2006,
-      yearTo: 2014,
+      yearFrom:
+        2006,
 
-      cilinderinhoud: 1995,
+      yearTo:
+        2014,
 
-      cilinderinhoudTolerance: 10,
+      cilinderinhoud:
+        1995,
 
-      vermogenKw: 84,
+      cilinderinhoudTolerance:
+        10,
 
-      vermogenTolerance: 2
+      vermogenKw:
+        84,
+
+      vermogenTolerance:
+        2
     },
 
     engine: {
-      naam: '2.0 dCi',
+      naam:
+        '2.0 dCi',
 
-      motorcode: 'M9R',
+      motorcode:
+        'M9R',
 
-      vermogenKw: 84,
+      vermogenKw:
+        84,
 
-      vermogenPk: 114
+      vermogenPk:
+        114
     },
 
     oil: {
-      viscositeit: null,
+      viscositeit:
+        null,
 
-      oemSpecificatie: null,
+      oemSpecificatie:
+        null,
 
-      requiresDpfCheck: true,
+      acea:
+        null,
+
+      requiresDpfCheck:
+        true,
+
+      dpfStatus:
+        'unknown',
 
       variants: {
         withDpf: {
@@ -235,7 +410,7 @@ export const oilMatches = [
 
       shell: {
         product:
-          'Nog te bepalen na DPF-controle',
+          'Wacht op DPF-controle',
 
         viscositeit:
           null,
@@ -249,7 +424,7 @@ export const oilMatches = [
 
       ok: {
         product:
-          'Nog te bepalen na DPF-controle',
+          'Wacht op DPF-controle',
 
         viscositeit:
           null,
@@ -263,7 +438,7 @@ export const oilMatches = [
 
       mpm: {
         product:
-          'Nog te bepalen na DPF-controle',
+          'Wacht op DPF-controle',
 
         viscositeit:
           null,
@@ -277,6 +452,12 @@ export const oilMatches = [
     }
   }
 ]
+
+/*
+  ==================================================
+  MATCH SCORE
+  ==================================================
+*/
 
 function calculateMatchScore(
   vehicle,
@@ -310,7 +491,9 @@ function calculateMatchScore(
     MODEL
   */
 
-  if (rules.modelContains) {
+  if (
+    rules.modelContains
+  ) {
     if (
       !includesText(
         vehicle.handelsbenaming,
@@ -388,7 +571,8 @@ function calculateMatchScore(
     rules.cilinderinhoud
   ) {
     const tolerance =
-      rules.cilinderinhoudTolerance ??
+      rules
+        .cilinderinhoudTolerance ??
       20
 
     if (
@@ -412,9 +596,12 @@ function calculateMatchScore(
     VERMOGEN
   */
 
-  if (rules.vermogenKw) {
+  if (
+    rules.vermogenKw
+  ) {
     const tolerance =
-      rules.vermogenTolerance ??
+      rules
+        .vermogenTolerance ??
       3
 
     if (
@@ -429,7 +616,9 @@ function calculateMatchScore(
 
     score += 50
 
-    reasons.push('vermogen')
+    reasons.push(
+      'vermogen'
+    )
   }
 
   return {
@@ -437,6 +626,134 @@ function calculateMatchScore(
     reasons
   }
 }
+
+/*
+  ==================================================
+  DPF-AFHANKELIJKE OLIE OPLOSSEN
+  ==================================================
+*/
+
+function resolveOilVariant(
+  item,
+  vehicle
+) {
+  if (
+    !item?.oil
+  ) {
+    return item
+  }
+
+  /*
+    Geen DPF-afhankelijke motor.
+  */
+
+  if (
+    !item.oil.requiresDpfCheck
+  ) {
+    return item
+  }
+
+  const dpf =
+    detectDpfStatus(vehicle)
+
+  /*
+    DPF-status onbekend.
+
+    We laten de motorherkenning staan,
+    maar kiezen bewust nog geen
+    viscositeit of OEM-specificatie.
+  */
+
+  if (dpf === null) {
+    return {
+      ...item,
+
+      oil: {
+        ...item.oil,
+
+        viscositeit:
+          null,
+
+        oemSpecificatie:
+          null,
+
+        acea:
+          null,
+
+        dpfStatus:
+          'unknown'
+      }
+    }
+  }
+
+  /*
+    MET DPF
+  */
+
+  if (dpf === true) {
+    const variant =
+      item.oil.variants?.withDpf
+
+    return {
+      ...item,
+
+      oil: {
+        ...item.oil,
+
+        viscositeit:
+          variant?.viscositeit ||
+          null,
+
+        oemSpecificatie:
+          variant?.oemSpecificatie ||
+          null,
+
+        acea:
+          variant?.acea ||
+          null,
+
+        dpfStatus:
+          'with-dpf'
+      }
+    }
+  }
+
+  /*
+    ZONDER DPF
+  */
+
+  const variant =
+    item.oil.variants?.withoutDpf
+
+  return {
+    ...item,
+
+    oil: {
+      ...item.oil,
+
+      viscositeit:
+        variant?.viscositeit ||
+        null,
+
+      oemSpecificatie:
+        variant?.oemSpecificatie ||
+        null,
+
+      acea:
+        variant?.acea ||
+        null,
+
+      dpfStatus:
+        'without-dpf'
+    }
+  }
+}
+
+/*
+  ==================================================
+  HOOFDFUNCTIE
+  ==================================================
+*/
 
 export function findOilMatch(
   vehicle
@@ -486,20 +803,33 @@ export function findOilMatch(
   /*
     Veiligheidsgrens.
 
-    We willen niet op alleen merk + model
-    zomaar olie adviseren.
+    Alleen merk + model is niet genoeg.
 
-    Met merk + model + brandstof +
-    bouwjaar + cilinderinhoud + vermogen
-    komen we ruim boven deze grens.
+    De huidige Audi en Renault scoren
+    onder andere op:
+
+    merk
+    model
+    brandstof
+    bouwjaar
+    cilinderinhoud
+    vermogen
   */
 
-  if (best.score < 120) {
+  if (
+    best.score < 120
+  ) {
     return null
   }
 
+  const resolvedItem =
+    resolveOilVariant(
+      best.item,
+      vehicle
+    )
+
   return {
-    ...best.item,
+    ...resolvedItem,
 
     matchInfo: {
       score:
