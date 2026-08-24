@@ -14,29 +14,38 @@ function formatKenteken(value) {
 function getYear(date) {
   if (!date) return null
 
-  const parts = date.split('-')
+  const parts = String(date).split('-')
 
-  if (parts.length !== 3) return null
+  if (parts.length !== 3) {
+    return null
+  }
 
   return parts[2]
 }
 
 function getVehicleFinderModel(vehicle) {
-  if (!vehicle?.handelsbenaming) return ''
+  if (!vehicle?.handelsbenaming) {
+    return ''
+  }
 
-  let model = vehicle.handelsbenaming.trim()
+  let model =
+    vehicle.handelsbenaming.trim()
 
   if (vehicle.merk) {
-    const merk = vehicle.merk.trim()
+    const merk =
+      vehicle.merk.trim()
 
     if (
       model
         .toUpperCase()
-        .startsWith(merk.toUpperCase())
+        .startsWith(
+          merk.toUpperCase()
+        )
     ) {
-      model = model
-        .slice(merk.length)
-        .trim()
+      model =
+        model
+          .slice(merk.length)
+          .trim()
     }
   }
 
@@ -52,15 +61,49 @@ function normalizeOilSpec(value = '') {
 }
 
 export default function Home() {
-  const [kenteken, setKenteken] = useState('')
-  const [vehicle, setVehicle] = useState(null)
-  const [vehicleFinder, setVehicleFinder] = useState(null)
+  const [
+    kenteken,
+    setKenteken
+  ] = useState('')
 
-  const [error, setError] = useState('')
-  const [oilError, setOilError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [
+    vehicle,
+    setVehicle
+  ] = useState(null)
 
-  const fallbackOilMatch = findOilMatch(vehicle)
+  const [
+    vehicleFinder,
+    setVehicleFinder
+  ] = useState(null)
+
+  const [
+    error,
+    setError
+  ] = useState('')
+
+  const [
+    oilError,
+    setOilError
+  ] = useState('')
+
+  const [
+    loading,
+    setLoading
+  ] = useState(false)
+
+  /*
+    unknown
+    with-dpf
+    without-dpf
+  */
+
+  const [
+    dpfChoice,
+    setDpfChoice
+  ] = useState('unknown')
+
+  const fallbackOilMatch =
+    findOilMatch(vehicle)
 
   async function zoeken(e) {
     e.preventDefault()
@@ -69,86 +112,122 @@ export default function Home() {
     setOilError('')
     setVehicle(null)
     setVehicleFinder(null)
+    setDpfChoice('unknown')
 
-    const clean = formatKenteken(kenteken)
+    const clean =
+      formatKenteken(kenteken)
 
     if (clean.length < 6) {
-      setError('Vul een geldig Nederlands kenteken in.')
+      setError(
+        'Vul een geldig Nederlands kenteken in.'
+      )
+
       return
     }
 
     setLoading(true)
 
     try {
-      // Stap 1: RDW
-      const rdwResponse = await fetch(
-        `/api/rdw?kenteken=${encodeURIComponent(clean)}`
-      )
+      /*
+        STAP 1
+        RDW
+      */
 
-      const rdwData = await rdwResponse.json()
+      const rdwResponse =
+        await fetch(
+          `/api/rdw?kenteken=${encodeURIComponent(
+            clean
+          )}`
+        )
+
+      const rdwData =
+        await rdwResponse.json()
 
       if (!rdwResponse.ok) {
         throw new Error(
-          rdwData.error || 'Voertuig niet gevonden.'
+          rdwData.error ||
+            'Voertuig niet gevonden.'
         )
       }
 
       setVehicle(rdwData)
 
-      const year = getYear(
-        rdwData.datumEersteToelating
-      )
+      /*
+        STAP 2
+        Vehicle Finder
+      */
 
-      const make = rdwData.merk
-      const model = getVehicleFinderModel(rdwData)
-
-      if (!year || !make || !model) {
-        setOilError(
-          'Niet genoeg voertuiggegevens om automatisch oliegegevens op te halen.'
+      const year =
+        getYear(
+          rdwData.datumEersteToelating
         )
+
+      const make =
+        rdwData.merk
+
+      const model =
+        getVehicleFinderModel(
+          rdwData
+        )
+
+      if (
+        !year ||
+        !make ||
+        !model
+      ) {
         return
       }
 
-      // Stap 2: Vehicle Finder + oliegegevens
       try {
-        const oilResponse = await fetch(
-          `/api/vehicle-oil?year=${encodeURIComponent(year)}` +
-            `&make=${encodeURIComponent(make)}` +
-            `&model=${encodeURIComponent(model)}` +
-            `&cilinderinhoud=${encodeURIComponent(
-              rdwData.cilinderinhoud || ''
+        const oilResponse =
+          await fetch(
+            `/api/vehicle-oil?year=${encodeURIComponent(
+              year
             )}` +
-            `&vermogenKw=${encodeURIComponent(
-              rdwData.vermogenKw || ''
-            )}`
-        )
+              `&make=${encodeURIComponent(
+                make
+              )}` +
+              `&model=${encodeURIComponent(
+                model
+              )}` +
+              `&cilinderinhoud=${encodeURIComponent(
+                rdwData.cilinderinhoud ||
+                  ''
+              )}` +
+              `&vermogenKw=${encodeURIComponent(
+                rdwData.vermogenKw ||
+                  ''
+              )}`
+          )
 
-        const oilData = await oilResponse.json()
+        const oilData =
+          await oilResponse.json()
+
+        /*
+          Onze vehicle-oil route kan
+          fallbackRequired teruggeven.
+
+          Dat is geen harde fout.
+        */
 
         if (!oilResponse.ok) {
           setOilError(
             oilData.error ||
               'Automatische oliegegevens konden niet worden gevonden.'
           )
+
           return
         }
 
-        setVehicleFinder(oilData)
-
-        if (
-          oilData.safeMatch === false &&
-          oilData.warning
-        ) {
-          setOilError(oilData.warning)
-        }
-      } catch (oilLookupError) {
+        setVehicleFinder(
+          oilData
+        )
+      } catch (
+        oilLookupError
+      ) {
         console.error(
           'Vehicle oil fout:',
           oilLookupError
-        )
-
-        setOilError(
-          'De automatische oliezoeker kon tijdelijk niet worden bereikt.'
         )
       }
     } catch (err) {
@@ -162,80 +241,200 @@ export default function Home() {
   }
 
   /*
-   * De vehicle-oil route kan verschillende vormen
-   * teruggeven. We ondersteunen zowel:
-   *
-   * oil: { oil_spec: ... }
-   *
-   * als:
-   *
-   * oil: { data: { oil_spec: ... } }
-   */
+    ==================================================
+    VEHICLE FINDER OLIE
+    ==================================================
+  */
 
   const automaticOil =
     vehicleFinder?.oil?.oil_spec ||
-    vehicleFinder?.oil?.data?.oil_spec ||
+    vehicleFinder?.oil?.data
+      ?.oil_spec ||
     vehicleFinder?.oil_spec ||
     null
 
-  const fallbackOil =
-    !automaticOil && fallbackOilMatch
-      ? {
-          viscosity:
-            fallbackOilMatch.oil?.viscositeit ||
-            fallbackOilMatch.oil?.shell?.viscositeit ||
-            null,
+  /*
+    ==================================================
+    LOKALE MOTOR / OLIE
+    ==================================================
+  */
 
-          oem_spec:
-            fallbackOilMatch.oil?.oemSpecificatie ||
-            fallbackOilMatch.oil?.shell?.specificatie ||
-            null
-        }
-      : null
+  let localOil = null
+
+  if (fallbackOilMatch) {
+    const oil =
+      fallbackOilMatch.oil
+
+    /*
+      Normale motor zonder
+      DPF-keuze.
+    */
+
+    if (
+      !oil?.requiresDpfCheck
+    ) {
+      localOil = {
+        viscosity:
+          oil?.viscositeit ||
+          null,
+
+        oem_spec:
+          oil?.oemSpecificatie ||
+          null,
+
+        acea:
+          oil?.acea ||
+          null,
+
+        source:
+          'local'
+      }
+    }
+
+    /*
+      Motor waarvoor DPF-status
+      nodig is.
+    */
+
+    if (
+      oil?.requiresDpfCheck &&
+      dpfChoice ===
+        'with-dpf'
+    ) {
+      const variant =
+        oil.variants?.withDpf
+
+      localOil = {
+        viscosity:
+          variant?.viscositeit ||
+          null,
+
+        oem_spec:
+          variant?.oemSpecificatie ||
+          null,
+
+        acea:
+          variant?.acea ||
+          null,
+
+        source:
+          'local-dpf'
+      }
+    }
+
+    if (
+      oil?.requiresDpfCheck &&
+      dpfChoice ===
+        'without-dpf'
+    ) {
+      const variant =
+        oil.variants
+          ?.withoutDpf
+
+      localOil = {
+        viscosity:
+          variant?.viscositeit ||
+          null,
+
+        oem_spec:
+          variant?.oemSpecificatie ||
+          null,
+
+        acea:
+          variant?.acea ||
+          null,
+
+        source:
+          'local-no-dpf'
+      }
+    }
+  }
+
+  /*
+    Vehicle Finder heeft voorrang
+    wanneer daar echte oliegegevens
+    beschikbaar zijn.
+
+    Anders gebruiken we de lokale
+    motorherkenning.
+  */
 
   const oilForProducts =
-    automaticOil || fallbackOil
+    automaticOil ||
+    localOil
 
   const normalizedSpec =
     normalizeOilSpec(
-      oilForProducts?.oem_spec || ''
+      oilForProducts?.oem_spec ||
+        ''
     )
+
+  /*
+    ==================================================
+    PRODUCTMATCHES
+    ==================================================
+  */
 
   const shellProduct =
     oilForProducts
       ? findProductByBrand({
-          oemSpec: normalizedSpec,
+          oemSpec:
+            normalizedSpec,
+
           viscosity:
-            oilForProducts.viscosity,
-          brand: 'Shell'
+            oilForProducts
+              .viscosity,
+
+          brand:
+            'Shell'
         })
       : null
 
   const okProduct =
     oilForProducts
       ? findProductByBrand({
-          oemSpec: normalizedSpec,
+          oemSpec:
+            normalizedSpec,
+
           viscosity:
-            oilForProducts.viscosity,
-          brand: 'OK Olie'
+            oilForProducts
+              .viscosity,
+
+          brand:
+            'OK Olie'
         })
       : null
 
   const mpmProduct =
     oilForProducts
       ? findProductByBrand({
-          oemSpec: normalizedSpec,
+          oemSpec:
+            normalizedSpec,
+
           viscosity:
-            oilForProducts.viscosity,
-          brand: 'MPM'
+            oilForProducts
+              .viscosity,
+
+          brand:
+            'MPM'
         })
       : null
 
   const matchedVehicle =
-    vehicleFinder?.vehicle || null
+    vehicleFinder?.vehicle ||
+    null
+
+  const requiresDpfChoice =
+    fallbackOilMatch?.oil
+      ?.requiresDpfCheck ===
+      true
 
   return (
     <main className="shell">
+
+      {/* =========================
+          ZOEKEN
+      ========================= */}
 
       <section className="hero">
 
@@ -244,13 +443,16 @@ export default function Home() {
         </div>
 
         <h1>
-          Vind de juiste motorolie via kenteken
+          Vind de juiste motorolie
+          via kenteken
         </h1>
 
         <p>
-          Voer je kenteken in. De app zoekt
-          automatisch het voertuig en de
-          beschikbare oliegegevens op.
+          Voer je kenteken in.
+          De app zoekt automatisch
+          het voertuig en de
+          beschikbare oliegegevens
+          op.
         </p>
 
         <form
@@ -267,7 +469,9 @@ export default function Home() {
             <input
               value={kenteken}
               onChange={(e) =>
-                setKenteken(e.target.value)
+                setKenteken(
+                  e.target.value
+                )
               }
               placeholder="AB123C"
               aria-label="Kenteken"
@@ -301,7 +505,9 @@ export default function Home() {
 
         <section className="results">
 
-          {/* RDW voertuig */}
+          {/* =========================
+              RDW
+          ========================= */}
 
           <div className="vehicleCard">
 
@@ -317,7 +523,9 @@ export default function Home() {
             <div className="specGrid">
 
               <div>
-                <span>Brandstof</span>
+                <span>
+                  Brandstof
+                </span>
 
                 <strong>
                   {vehicle.brandstof ||
@@ -349,7 +557,9 @@ export default function Home() {
               </div>
 
               <div>
-                <span>Variant</span>
+                <span>
+                  Variant
+                </span>
 
                 <strong>
                   {vehicle.variant ||
@@ -358,7 +568,9 @@ export default function Home() {
               </div>
 
               <div>
-                <span>Vermogen</span>
+                <span>
+                  Vermogen
+                </span>
 
                 <strong>
                   {vehicle.vermogenKw
@@ -374,7 +586,9 @@ export default function Home() {
 
           </div>
 
-          {/* Vehicle Finder match */}
+          {/* =========================
+              VEHICLE FINDER
+          ========================= */}
 
           {matchedVehicle && (
 
@@ -392,7 +606,9 @@ export default function Home() {
               <div className="specGrid">
 
                 <div>
-                  <span>Vehicle ID</span>
+                  <span>
+                    Vehicle ID
+                  </span>
 
                   <strong>
                     {matchedVehicle.id ||
@@ -401,7 +617,9 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <span>Bouwjaar</span>
+                  <span>
+                    Bouwjaar
+                  </span>
 
                   <strong>
                     {matchedVehicle.year ||
@@ -410,7 +628,9 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <span>Motor</span>
+                  <span>
+                    Motor
+                  </span>
 
                   <strong>
                     {matchedVehicle.engine ||
@@ -436,7 +656,142 @@ export default function Home() {
 
           )}
 
-          {/* Automatisch olieadvies */}
+          {/* =========================
+              MOTORHERKENNING
+          ========================= */}
+
+          {fallbackOilMatch && (
+
+            <div className="vehicleCard">
+
+              <span className="label">
+                Motor herkend
+              </span>
+
+              <h2>
+                {fallbackOilMatch
+                  .engine.naam}{' '}
+                –{' '}
+                {fallbackOilMatch
+                  .engine.vermogenKw}{' '}
+                kW /{' '}
+                {fallbackOilMatch
+                  .engine.vermogenPk}{' '}
+                pk
+              </h2>
+
+              <p>
+                <strong>
+                  Motorcode:
+                </strong>{' '}
+                {fallbackOilMatch
+                  .engine.motorcode}
+              </p>
+
+            </div>
+
+          )}
+
+          {/* =========================
+              DPF KEUZE
+          ========================= */}
+
+          {requiresDpfChoice &&
+            !automaticOil && (
+
+              <div className="vehicleCard">
+
+                <span className="label">
+                  Roetfilter controleren
+                </span>
+
+                <h2>
+                  Heeft dit voertuig
+                  een roetfilter (DPF)?
+                </h2>
+
+                <p>
+                  Voor deze motor hangt
+                  de juiste
+                  oliespecificatie af
+                  van de aanwezigheid
+                  van een roetfilter.
+                </p>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    marginTop: '20px'
+                  }}
+                >
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDpfChoice(
+                        'with-dpf'
+                      )
+                    }
+                  >
+                    Ja, met roetfilter
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDpfChoice(
+                        'without-dpf'
+                      )
+                    }
+                  >
+                    Nee, zonder roetfilter
+                  </button>
+
+                </div>
+
+                {dpfChoice ===
+                  'with-dpf' && (
+
+                  <p
+                    style={{
+                      marginTop: '20px'
+                    }}
+                  >
+                    Gekozen:
+                    {' '}
+                    <strong>
+                      met roetfilter
+                    </strong>
+                  </p>
+
+                )}
+
+                {dpfChoice ===
+                  'without-dpf' && (
+
+                  <p
+                    style={{
+                      marginTop: '20px'
+                    }}
+                  >
+                    Gekozen:
+                    {' '}
+                    <strong>
+                      zonder roetfilter
+                    </strong>
+                  </p>
+
+                )}
+
+              </div>
+
+          )}
+
+          {/* =========================
+              AUTOMATISCH OLIEADVIES
+          ========================= */}
 
           {automaticOil && (
 
@@ -516,6 +871,80 @@ export default function Home() {
 
           )}
 
+          {/* =========================
+              LOKAAL OLIEADVIES
+          ========================= */}
+
+          {!automaticOil &&
+            localOil && (
+
+              <div className="vehicleCard">
+
+                <span className="label">
+                  Olieadvies
+                </span>
+
+                <h2>
+                  {localOil.viscosity}
+                </h2>
+
+                <div className="specGrid">
+
+                  <div>
+                    <span>
+                      Viscositeit
+                    </span>
+
+                    <strong>
+                      {localOil.viscosity ||
+                        'Onbekend'}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      OEM-specificatie
+                    </span>
+
+                    <strong>
+                      {localOil.oem_spec ||
+                        'Onbekend'}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      ACEA
+                    </span>
+
+                    <strong>
+                      {localOil.acea ||
+                        'Onbekend'}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      DPF
+                    </span>
+
+                    <strong>
+                      {dpfChoice ===
+                      'with-dpf'
+                        ? 'Met roetfilter'
+                        : dpfChoice ===
+                            'without-dpf'
+                          ? 'Zonder roetfilter'
+                          : 'Niet van toepassing'}
+                    </strong>
+                  </div>
+
+                </div>
+
+              </div>
+
+          )}
+
           {oilError && (
 
             <div className="message error">
@@ -524,37 +953,9 @@ export default function Home() {
 
           )}
 
-          {/* Lokale fallback motorherkenning */}
-
-          {fallbackOilMatch && (
-
-            <div className="vehicleCard">
-
-              <span className="label">
-                Motor herkend
-              </span>
-
-              <h2>
-                {fallbackOilMatch.engine.naam}{' '}
-                –{' '}
-                {fallbackOilMatch.engine.vermogenKw}{' '}
-                kW /{' '}
-                {fallbackOilMatch.engine.vermogenPk}{' '}
-                pk
-              </h2>
-
-              <p>
-                <strong>
-                  Motorcode:
-                </strong>{' '}
-                {fallbackOilMatch.engine.motorcode}
-              </p>
-
-            </div>
-
-          )}
-
-          {/* Producten */}
+          {/* =========================
+              PRODUCTEN
+          ========================= */}
 
           <h3>
             Motorolie per merk
@@ -562,7 +963,7 @@ export default function Home() {
 
           <div className="brandGrid">
 
-            {/* Shell */}
+            {/* SHELL */}
 
             <article className="brandCard">
 
@@ -584,12 +985,15 @@ export default function Home() {
                 </p>
               )}
 
-              {shellProduct?.specs?.length > 0 && (
+              {shellProduct?.specs?.length >
+                0 && (
                 <p>
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {shellProduct.specs.join(' / ')}
+                  {shellProduct.specs.join(
+                    ' / '
+                  )}
                 </p>
               )}
 
@@ -601,7 +1005,7 @@ export default function Home() {
 
             </article>
 
-            {/* OK Olie */}
+            {/* OK OLIE */}
 
             <article className="brandCard">
 
@@ -623,12 +1027,15 @@ export default function Home() {
                 </p>
               )}
 
-              {okProduct?.specs?.length > 0 && (
+              {okProduct?.specs?.length >
+                0 && (
                 <p>
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {okProduct.specs.join(' / ')}
+                  {okProduct.specs.join(
+                    ' / '
+                  )}
                 </p>
               )}
 
@@ -662,12 +1069,15 @@ export default function Home() {
                 </p>
               )}
 
-              {mpmProduct?.specs?.length > 0 && (
+              {mpmProduct?.specs?.length >
+                0 && (
                 <p>
                   <strong>
                     Specificatie:
                   </strong>{' '}
-                  {mpmProduct.specs.join(' / ')}
+                  {mpmProduct.specs.join(
+                    ' / '
+                  )}
                 </p>
               )}
 
